@@ -1,6 +1,6 @@
 # REACHER System Troubleshooting Guide
 
-> [!NOTE]
+> 📝 **Note:**
 > **REACHER** — Rodent Experiment Application Controls and Handling Ecosystem for Research
 >
 > This guide covers the entire pipeline from physical hardware setup through data export
@@ -25,7 +25,7 @@
 | 10 | [Troubleshooting Flowcharts](#flowcharts) | Quick-reference decision trees |
 | 11 | [Glossary](#glossary) | Terms and definitions |
 
-> [!TIP]
+> 💡 **Tip:**
 > Click any section heading to expand it.
 
 <!-- ============================================================ -->
@@ -112,7 +112,7 @@ The Arduino UNO connects to each hardware component through specific pins:
 
 </details>
 
-> [!NOTE]
+> 📝 **Note:**
 > Each hardware component also needs a ground (GND) connection. Use the
 > GND pins on the Arduino. Some components (like the laser) may also require an
 > external power supply.
@@ -188,7 +188,7 @@ When you open The Labrynth:
 3. The launcher window updates to "Session running in browser. (keep this window open)"
 4. The dashboard loads in your browser with a dark theme
 
-> [!IMPORTANT]
+> ❗ **Important:**
 > Keep the launcher window open for the entire session. Closing it
 > shuts down the dashboard server.
 
@@ -299,7 +299,7 @@ After uploading firmware, verify each component is wired correctly:
 
 </details>
 
-> [!IMPORTANT]
+> ❗ **Important:**
 > Always connect GND wires between the Arduino and each component.
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
@@ -484,11 +484,11 @@ Animal presses active lever
   Timeout ends — next press can earn another reward
 ```
 
-> [!WARNING]
+> ⚠️ **Warning:**
 > **Timeout set to 0:** The animal can earn rewards as fast as it can press — this is
 > usually not desired.
 
-> [!WARNING]
+> ⚠️ **Warning:**
 > **Trace interval too long:** The animal may not associate the cue with the reward if
 > the gap is too large.
 
@@ -596,7 +596,7 @@ The dashboard shows a timeline plot that updates every **5 seconds**.
    finalizes the data
 3. **Always stop the experiment before disconnecting the USB cable**
 
-> [!CAUTION]
+> 🔴 **Caution:**
 > **If USB is pulled without stopping:** Data collected up to that point is
 > preserved in the log files (`~/REACHER/LOG/`), but the session metadata may be
 > incomplete and the export file may not be generated automatically.
@@ -735,7 +735,7 @@ false readings from switch bounce.
 <details>
 <summary><h3>7.4 Laser Testing</h3></summary>
 
-> [!CAUTION]
+> 🔴 **Caution:**
 > **SAFETY: ALWAYS wear appropriate laser safety eyewear when testing the laser.**
 
 **Software test:**
