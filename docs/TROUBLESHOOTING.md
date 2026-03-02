@@ -462,7 +462,7 @@ entered in **seconds** in the dashboard and converted to milliseconds for the Ar
 | Parameter | What It Means | Default | Range |
 |-----------|--------------|---------|-------|
 | **Fixed Ratio** | How many lever presses before a reward is given | 1 (FR1 = every press is rewarded) | 1–50 |
-| **Timeout Duration** | Cooldown period after a reward — presses during this time don't count | 20 seconds | 0–600 seconds |
+| **Timeout Duration** | Period following reward delivery where rewards do not occur - active presses during this period do not trigger cue or reward | 20 seconds | 0–600 seconds |
 | **Trace Duration** | Gap between the cue tone ending and the pump starting | 0 seconds | 0–60 seconds |
 
 **How these work together (FR1 example with defaults):**
