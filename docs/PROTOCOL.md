@@ -3,8 +3,7 @@
 > 📝 **Note:**
 > **REACHER** — Rodent Experiment Application Controls and Handling Ecosystem for Research
 >
-> This guide walks through **Procedure 2** of the Nature Protocols manuscript:
-> *Integrating circuitry and software*. It covers every step from installing the
+> This guide covers every step from installing the
 > Arduino IDE through running and exporting a self-administration session using
 > the Labrynth application. It is written for users with no prior programming
 > experience.
