@@ -1,4 +1,4 @@
-# REACHER v2.0.0 — Development Guide
+# REACHER v2 — Development Guide
 
 This guide explains how the REACHER system works and how to modify it. It is written for researchers or developers who may need to add new hardware devices, create new behavioral paradigms, change the user interface, or extend the data pipeline. No prior experience with the codebase is assumed.
 
@@ -101,6 +101,20 @@ For example, `371` = Cue (`3xx`) + Set frequency (`x71`). The full list is defin
 
 FR, PR, VI, and Omission all use the shared `Scheduler` class with a **trigger → chain → action** pattern. Pavlovian uses a separate `PavlovianScheduler` that implements a trial-based state machine.
 
+### Multi-Machine / mDNS Discovery
+
+Starting in the v2 series, the backend supports a dual-role deployment in which one host runs the user-facing Labrynth GUI ("primary") while one or more peripherals (typically Raspberry Pis) run the same `reacher` package headless and own the Arduino hardware. The user pairs each peripheral with the GUI and then drives sessions on it as if it were local.
+
+**Role detection (no flag, no separate package).** The same `reacher` package serves both roles. At startup, `src/reacher/api/app.py` resolves a `STATIC_DIR` (the bundled React frontend). If a frontend is bundled, the instance is a **primary**; if not, it is a **peripheral**. Peripherals rotate a 6-digit pairing code on stdout for one-time pairing; primaries do not.
+
+**Service registration.** `src/reacher/discovery.py` registers the backend over Zeroconf as `_reacher._tcp.local.` with TXT records for `device_id` and `version` (no API key is broadcast). Discovery polling on the primary surfaces unpaired peers via mDNS every ~10 s.
+
+**Pairing flow.** The frontend (`web/src/components/machines/MachinePanel.tsx`, backed by `useMachineStore`) shows discovered peripherals as cards. The user clicks **Add Machine**, enters the URL plus the 6-digit code, and the primary calls `POST /api/discovery/{id}/pair` (auth-free) to exchange the code for a long-lived API key. The key is stored on the primary's backend, never in the browser.
+
+**Proxy mode.** When the active machine is remote, the React app's API client targets `/api/proxy/{deviceId}/...` on the **local** primary; the primary forwards each request to the remote peripheral with the stored API key attached. WebSocket connections fetch a short-lived token via `getWsTokenAsync()` before opening, so even the WS handshake doesn't expose the key to the browser.
+
+**Multicast fallback.** On networks where mDNS multicast is filtered (university LANs, some VLANs), the peripheral can self-register via unicast HTTP by setting the `REACHER_BROKER_URL` env var. The primary then discovers it through `POST /api/discovery/register` rather than mDNS.
+
 ---
 
 ## 2. Development Environment Setup
@@ -180,7 +194,7 @@ reacher/
 ├── pyproject.toml                    # Package metadata, dependencies, scripts
 ├── src/
 │   └── reacher/
-│       ├── __init__.py               # Public API exports, __version__ = "2.0.0"
+│       ├── __init__.py               # Public API exports, __version__ = "2.0.1"
 │       ├── __main__.py               # python -m reacher entry point
 │       ├── session_manager.py        # Multi-session coordinator (port locking, state)
 │       ├── kernel/
@@ -418,18 +432,39 @@ POST /api/program/{id}/stop           — Stop program
 POST /api/program/{id}/pause          — Pause/resume program
 POST /api/program/{id}/limit          — Set time/infusion limits
 
+POST /api/sessions/{id}/split         — Begin a new behavior CSV segment without ending the session
+POST /api/sessions/{id}/restart       — Reset session counters and start a new segment
+
 GET  /api/data/{id}/behavior          — Get behavioral event data
 GET  /api/data/{id}/frames            — Get microscope frame timestamps
 
 POST /api/file/{id}/config            — Set filename and destination
 POST /api/file/{id}/export/zip        — Export session data as ZIP
 
-POST /api/lifecycle/shutdown           — Graceful server shutdown
+GET  /api/discovery                   — List mDNS peers + paired remote machines
+POST /api/discovery/{id}/pair         — Pair a peripheral with the 6-digit code (auth-free)
+POST /api/discovery/register          — Unicast self-registration fallback (broker mode)
+
+POST /api/lifecycle/shutdown          — Graceful server shutdown (auth-free for browser sendBeacon)
 
 WS   /ws/{session_id}                 — Real-time event stream (WebSocket)
 ```
 
-All `/api/*` routes require a Bearer token (auto-fetched from `/api/auth/token` by the frontend).
+All `/api/*` routes require a Bearer token (auto-fetched from `/api/auth/token` by the frontend) **except** for `/api/discovery/{id}/pair` and `/api/lifecycle/shutdown`, which are auth-free by design (the former bootstraps a new pairing, the latter must work from browser `navigator.sendBeacon`).
+
+**Session segmentation.** When the frontend calls `/sessions/{id}/split` or `/sessions/{id}/restart` mid-session, the backend rotates the on-disk behavioral CSV: the next event lands in `behavior_events_002.csv`, and so on (`behavior_events_001.csv` is the first segment). The exported ZIP collects every segment.
+
+### Environment Variables
+
+The backend reads the following environment variables at startup (defaults shown):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `REACHER_PORT` | `6229` | HTTP/WebSocket port for the FastAPI server |
+| `REACHER_HOST` | `0.0.0.0` | Bind address. `0.0.0.0` exposes the API on the LAN; set to `127.0.0.1` to restrict to localhost |
+| `REACHER_WS_PING_INTERVAL` | `20` (seconds) | WebSocket keepalive ping interval |
+| `REACHER_WS_PING_TIMEOUT` | `60` (seconds) | WebSocket disconnect timeout if no pong is received |
+| `REACHER_BROKER_URL` | unset | If set on a peripheral, the peripheral self-registers via unicast HTTP to this broker URL (used when mDNS multicast is blocked) |
 
 ### Scenario 1: Adding a New Hardware Device
 
@@ -894,13 +929,13 @@ This walks through adding a "Nosepoke" sensor end-to-end.
 
 ### Version Compatibility
 
-| Component | Version |
-|-----------|---------|
-| reacher-firmware | v2.0.0 |
-| reacher (Python) | v2.0.0 |
-| labrynth (React + packaging) | v2.0.0 |
+| Component | Develop branch | Notes |
+|-----------|----------------|-------|
+| reacher-firmware | v2.0.0 | Pin assignments and serial protocol unchanged within the v2 series |
+| reacher (Python) | 2.0.1 | Adds session SPLIT/RESTART, configurable WS ping, mDNS discovery, broker fallback |
+| labrynth (React + packaging) | 2.1.x-dev | Adds Machines panel, multi-machine pairing, proxy mode |
 
-All three must be at compatible versions. The firmware embeds its version in the `SendIdentification()` response, and the backend logs it on connection.
+The three must be at compatible versions across the v2 line. The firmware embeds its version in the `SendIdentification()` response, and the backend logs it on connection.
 
 ---
 
@@ -977,7 +1012,8 @@ When testing a change that spans multiple repos:
 ```bash
 cd reacher
 python -m build
-# Produces dist/reacher-2.0.0.tar.gz and dist/reacher-2.0.0-py3-none-any.whl
+# Produces dist/reacher-{VERSION}.tar.gz and dist/reacher-{VERSION}-py3-none-any.whl
+# (e.g., 2.0.1 on the current develop branch)
 ```
 
 ### Building the Labrynth Standalone Application
@@ -1027,6 +1063,10 @@ The CI workflow (`build-installers.yml`) creates platform-specific installers:
 | Windows | `.exe` installer | Inno Setup (`iscc installer/reacher.iss`) |
 | macOS | `.dmg` disk image | `hdiutil create` |
 | Linux | `.deb` package | `dpkg-deb --build` |
+| Linux | `.tar.gz` portable archive | `tar -czf` |
+| Linux | `.AppImage` self-contained binary | `appimagetool` |
+
+All artifacts are emitted with the `labrynth-{VERSION}-{platform}.{ext}` naming convention (the `.deb` uses `_` separators per Debian policy: `labrynth_{VERSION}_amd64.deb`).
 
 ### CI/CD
 
@@ -1050,13 +1090,13 @@ REACHER follows [Semantic Versioning](https://semver.org/):
 
 ### Version Locations
 
-| File | Location |
-|------|----------|
-| `reacher/pyproject.toml` | `version = "2.0.0"` |
-| `reacher/src/reacher/__init__.py` | `__version__ = "2.0.0"` |
-| `labrynth/pyproject.toml` | `version = "2.0.0"` |
-| `labrynth/web/package.json` | `"version": "2.0.0"` |
-| Firmware | `SendIdentification()` version string (e.g., `"v2.0.0"`) |
+| File | Location | Develop value |
+|------|----------|---------------|
+| `reacher/pyproject.toml` | `version = "X.Y.Z"` | `2.0.1` |
+| `reacher/src/reacher/__init__.py` | `__version__ = "X.Y.Z"` | `2.0.1` |
+| `labrynth/pyproject.toml` | `version = "X.Y.Z"` | `2.1.18-dev` |
+| `labrynth/web/package.json` | `"version": "X.Y.Z"` | `2.1.18-dev` |
+| Firmware | `library.properties` and `SendIdentification()` | `v2.0.0` |
 
 ### Version Sync
 
@@ -1085,9 +1125,11 @@ When releasing a new version, update all five locations above. The CI workflow e
 2. **CI auto-builds** all 3 platform installers via `build-installers.yml`.
 
 3. **GitHub Release** is created automatically with generated release notes. Installers are attached:
-   - `REACHER-2.1.0-windows-x64.exe`
-   - `REACHER-2.1.0-macos-arm64.dmg`
-   - `reacher_2.1.0_amd64.deb`
+   - `labrynth-2.1.0-windows-x64.exe`
+   - `labrynth-2.1.0-macos-arm64.dmg`
+   - `labrynth_2.1.0_amd64.deb`
+   - `labrynth-2.1.0-linux-x64.tar.gz`
+   - `labrynth-2.1.0-linux-x64.AppImage`
 
 ### Post-Release
 
@@ -1129,4 +1171,4 @@ REACHER's session output (the per-session `~/REACHER/LOG/{timestamp}/` folder an
 
 ---
 
-*Document version: REACHER-Suite v2.0.0. Last updated: April 2026.*
+*Document version: REACHER-Suite v2 (develop). Last updated: April 2026.*

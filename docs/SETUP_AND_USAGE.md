@@ -39,7 +39,7 @@ The REACHER system is composed of three coordinated repositories:
    - Low-level Arduino sketches for hardware control
    - Controls solenoids, pumps, sensors, levers, and cues
    - 5 paradigms: Fixed Ratio (FR), Progressive Ratio (PR), Variable Interval (VI), Omission, Pavlovian
-   - REACHERDevices shared library (v2.0.0)
+   - REACHERDevices shared library (v2 series)
    - Also included as a submodule of labrynth
    - GitHub: `https://github.com/Otis-Lab-MUSC/reacher-firmware`
 
@@ -753,28 +753,34 @@ The standalone executable bundles the Python backend, React frontend, firmware h
 
 **Linux:**
 ```bash
-# Run the executable
-./dist/REACHER/REACHER
+# Run the AppImage (no install)
+chmod +x labrynth-{VERSION}-linux-x64.AppImage
+./labrynth-{VERSION}-linux-x64.AppImage
 
-# Or from the extracted directory:
-cd REACHER
-./REACHER
+# Or extract the portable tarball and run:
+tar -xzf labrynth-{VERSION}-linux-x64.tar.gz
+cd labrynth && ./labrynth
+
+# Or install the .deb package:
+sudo apt install ./labrynth_{VERSION}_amd64.deb
+labrynth
 ```
 
 **Windows:**
 ```powershell
-# Run the installer
-.\REACHER-2.0.0-windows-x64.exe
+# Run the Inno Setup installer
+.\labrynth-{VERSION}-windows-x64.exe
 
-# Or run the portable executable:
-.\dist\REACHER\REACHER.exe
+# After install, launch from the Start menu or Program Files\Labrynth\
 ```
 
 **macOS:**
 ```bash
-# Open the application
-open REACHER.app
+# Mount the .dmg, drag Labrynth.app to /Applications, then:
+open /Applications/Labrynth.app
 ```
+
+Release artifacts on the [Labrynth releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases) follow the `labrynth-{VERSION}-{platform}.{ext}` naming convention; substitute the version tag (without the leading `v`) for `{VERSION}`.
 
 The application starts the backend server on `http://localhost:6229` and automatically opens a browser window.
 
@@ -812,6 +818,55 @@ npm run dev
 ```
 
 Open `http://localhost:5173` in your browser. The Vite dev server proxies API requests to the backend on port 6229.
+
+<a id="connecting-a-remote-peripheral-raspberry-pi"></a>
+### Connecting a Remote Peripheral (Raspberry Pi)
+
+Labrynth supports a multi-machine topology in which the GUI runs on a desktop or laptop while the Arduino is physically attached to a separate networked peripheral such as a Raspberry Pi. The peripheral runs the same `reacher` Python backend in headless mode; the desktop's Labrynth instance discovers it over mDNS and pairs with a one-time 6-digit code.
+
+**1. Install the REACHER backend on the peripheral.**
+
+```bash
+# On the Pi, in a Python 3.10+ environment
+pip install reacher
+
+# Optional: install as a systemd service that auto-starts on boot
+# (clone reacher first, then run the install script — see the reacher repo)
+git clone https://github.com/Otis-Lab-MUSC/reacher.git
+cd reacher
+bash scripts/install.sh
+```
+
+**2. Start the peripheral.**
+
+```bash
+# Manual start
+python -m reacher
+
+# Or, if you used scripts/install.sh:
+sudo systemctl start reacher.service
+sudo systemctl status reacher.service
+```
+
+When the peripheral starts in headless (no-frontend) mode, it logs a **6-digit pairing code** to its terminal or systemd journal. The code rotates periodically; use the most recent one when pairing.
+
+**3. Pair from the host's Labrynth instance.**
+
+1. Launch Labrynth on the desktop. The local backend on `localhost:6229` is auto-paired.
+2. Open the **Machines** panel. Within ~10 s, the peripheral should appear as an unpaired discovered device (mDNS service `_reacher._tcp.local.`).
+3. Click **Add Machine**. Enter the peripheral's URL (e.g., `http://reacher-pi.local:6229`) and the 6-digit code from step 2.
+4. Once paired, click the new machine card to make it active. Subsequent session, hardware, program, and data operations are routed through the local backend's proxy (`/api/proxy/{deviceId}/...`), keeping the API key server-side.
+
+**4. Network requirements.**
+
+- Host and peripheral must be on the same LAN.
+- The peripheral's port (default `6229`) must be reachable from the host (open the firewall on the Pi if necessary).
+- For environments where multicast traffic is filtered (e.g., university networks), set `REACHER_BROKER_URL` on the peripheral to a reachable broker URL. The peripheral will then self-register via unicast HTTP instead of mDNS.
+
+**5. Verify.**
+
+- The paired machine appears with an "online" indicator in the Machines panel.
+- Selecting the machine and creating a wired session shows the peripheral's COM ports (e.g., `/dev/ttyACM0` on the Pi), not the host's.
 
 ### Using the REACHER Interface
 
@@ -1212,7 +1267,7 @@ git log --oneline -10
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    REACHER v2.0.0 System Architecture               │
+│                    REACHER v2 System Architecture                   │
 └─────────────────────────────────────────────────────────────────────┘
 
     ┌──────────────────────┐      ┌──────────────────────┐
@@ -1235,7 +1290,7 @@ git log --oneline -10
                           ↓ Serial JSON (115200 baud)
                ┌──────────────────────┐
                │  Arduino (ATmega328P)│ ←──→ REACHERDevices library
-               │  Firmware v2.0.0     │      5 paradigms:
+               │  Firmware v2.x       │      5 paradigms:
                │                      │      FR, PR, VI, Omission,
                │                      │      Pavlovian
                └──────────┬───────────┘

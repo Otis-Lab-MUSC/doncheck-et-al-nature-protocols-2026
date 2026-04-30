@@ -4,7 +4,7 @@
 
 ## Overview
 
-This meta-repository is a centralized hub for reproducible implementation of the head-restrained intravenous and oral self-administration protocol in mice. It links to modular components of the **REACHER** open-source behavioral software stack (firmware, backend, application, hardware models), referenced in the paper at the **REACHER-Suite v2.0.0** baseline.
+This meta-repository is a centralized hub for reproducible implementation of the head-restrained intravenous and oral self-administration protocol in mice. It links to modular components of the **REACHER** open-source behavioral software stack (firmware, backend, application, hardware models), tracking the **REACHER-Suite v2 series** on the `develop` branch of each component repository.
 
 For step-by-step usage, see the protocol guides in [`docs/`](docs/):
 
@@ -18,8 +18,8 @@ For step-by-step usage, see the protocol guides in [`docs/`](docs/):
 | Repository | Description |
 |-----------------|-------------|
 | [`reacher-firmware`](https://github.com/Otis-Lab-MUSC/reacher-firmware) | Arduino C++ firmware for the rig. Five paradigms (FR, PR, VI, Omission, Pavlovian) sharing the `REACHERDevices` library; JSON serial protocol at 115200 baud. |
-| [`reacher`](https://github.com/Otis-Lab-MUSC/reacher) | FastAPI + WebSocket backend with multi-threaded serial kernel. Session management, port locking, mDNS discovery, firmware uploader, and event logging. Listens on `localhost:6229`. |
-| [`labrynth`](https://github.com/Otis-Lab-MUSC/labrynth) | Desktop application shell. Bundles the React 19 dashboard, terminal CLI (`reacher-cli`), the firmware submodule, and a PyInstaller build pipeline that produces platform installers for Windows, macOS, and Linux. |
+| [`reacher`](https://github.com/Otis-Lab-MUSC/reacher) | FastAPI + WebSocket backend with multi-threaded serial kernel. Dual-role deployment (primary GUI host or headless peripheral). Session management with mid-session SPLIT/RESTART, port locking, mDNS discovery (with `REACHER_BROKER_URL` unicast fallback), firmware uploader, event logging, and a systemd install script for headless Raspberry Pis. Listens on port `6229`. |
+| [`labrynth`](https://github.com/Otis-Lab-MUSC/labrynth) | Desktop application shell. Bundles the React 19 dashboard, terminal CLI (`reacher-cli`), the firmware submodule, and a 6-stage PyInstaller build pipeline that produces platform installers (`labrynth-{VERSION}-{platform}.{ext}`) for Windows, macOS, and Linux. Includes a Machines panel for pairing and proxying remote peripherals (e.g., Raspberry Pis) over a 6-digit pairing code. |
 | [`reacher-hardware-models`](https://github.com/Otis-Lab-MUSC/reacher-hardware-models) | STL files and machining specs for the head-fixed rig: lever assemblies, syringe-pump components, ethernet circuit boxes, and the head-fixation station. |
 
 ### See also
@@ -41,4 +41,4 @@ If using these resources, please cite:
 
 ---
 
-*This repository tracks REACHER-Suite v2.0.0. Last updated: April 2026.*
+*This repository tracks REACHER-Suite v2 (develop). Last updated: April 2026.*

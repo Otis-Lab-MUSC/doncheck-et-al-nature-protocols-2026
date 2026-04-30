@@ -139,27 +139,28 @@ The Arduino UNO connects to each hardware component through specific pins:
 ### 2.1 Download & Install
 
 Download the latest installer for your platform from the
-[REACHER releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases).
+[Labrynth releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases).
+Release artifacts follow a `labrynth-{VERSION}-{platform}.{ext}` naming convention
+(the `.deb` uses Debian's underscore form: `labrynth_{VERSION}_amd64.deb`).
 
 <details>
 <summary><h3>Windows</h3></summary>
 
-1. Download `REACHER-{VERSION}-windows-x64.exe`
+1. Download `labrynth-{VERSION}-windows-x64.exe`
 2. Double-click the installer
 3. **You will need administrator privileges** — click "Yes" when prompted by Windows
 4. Follow the Inno Setup wizard (accept defaults)
-5. The application installs to `C:\Program Files\REACHER\`
-6. A desktop shortcut is created (optional)
-7. The REACHER backend starts automatically after installation
+5. A desktop shortcut is created (optional)
+6. The REACHER backend starts automatically after installation
 
 </details>
 
 <details>
 <summary><h3>macOS</h3></summary>
 
-1. Download `REACHER-{VERSION}-macos-x64.dmg`
+1. Download `labrynth-{VERSION}-macos-arm64.dmg`
 2. Double-click the `.dmg` file to mount it
-3. Drag "REACHER" to your Applications folder
+3. Drag "Labrynth" to your Applications folder
 4. **First launch — Gatekeeper bypass:**
    - Right-click (or Control-click) the app → select **Open**
    - Click **Open** in the dialog that appears
@@ -171,12 +172,23 @@ Download the latest installer for your platform from the
 <details>
 <summary><h3>Linux</h3></summary>
 
-1. Download `REACHER-{VERSION}-linux-amd64.deb`
-2. Open a terminal and run:
+Three artifacts are produced for Linux. Pick the one that matches your environment:
+
+- **`.deb` package** (Debian / Ubuntu / Pop!_OS):
    ```bash
-   sudo apt install ./REACHER-{VERSION}-linux-amd64.deb
+   sudo apt install ./labrynth_{VERSION}_amd64.deb
+   labrynth
    ```
-3. The application installs to `/opt/reacher/` with a symlink at `/usr/local/bin/reacher`
+- **Portable tarball** (any glibc-based distro):
+   ```bash
+   tar -xzf labrynth-{VERSION}-linux-x64.tar.gz
+   cd labrynth && ./labrynth
+   ```
+- **AppImage** (any glibc-based distro, no install):
+   ```bash
+   chmod +x labrynth-{VERSION}-linux-x64.AppImage
+   ./labrynth-{VERSION}-linux-x64.AppImage
+   ```
 
 </details>
 
@@ -300,11 +312,11 @@ Use this method if you need to modify firmware source code before uploading.
 
 | Paradigm | Firmware Folder | Sketch File | Status |
 |----------|----------------|-------------|--------|
-| Fixed-Ratio (FR) | `fr/` | `fr.ino` | Stable (v2.0.0) |
-| Progressive-Ratio (PR) | `pr/` | `pr.ino` | Stable (v2.0.0) |
-| Variable-Interval (VI) | `vi/` | `vi.ino` | Stable (v2.0.0) |
-| Omission | `omission/` | `omission.ino` | Stable (v2.0.0) |
-| Pavlovian | `pavlovian/` | `pavlovian.ino` | Stable (v2.0.0) |
+| Fixed-Ratio (FR) | `fr/` | `fr.ino` | Stable (v2 series) |
+| Progressive-Ratio (PR) | `pr/` | `pr.ino` | Stable (v2 series) |
+| Variable-Interval (VI) | `vi/` | `vi.ino` | Stable (v2 series) |
+| Omission | `omission/` | `omission.ino` | Stable (v2 series) |
+| Pavlovian | `pavlovian/` | `pavlovian.ino` | Stable (v2 series) |
 
 All paradigms use the shared **REACHERDevices** library (`libraries/REACHERDevices/`)
 which provides common device classes, pin assignments, and the Scheduler engine.
@@ -500,6 +512,30 @@ When the connection succeeds:
 - The jingle only plays if the speaker is physically connected — it does not require
   arming the cue in the Hardware Tab
 - See [Section 8.2](#82-cue-speaker-testing) for speaker diagnostics
+
+### 4.4 Remote-Peripheral Pairing (Raspberry Pi)
+
+If you're running the Arduino on a separate networked peripheral (e.g., a Raspberry Pi running headless `reacher`) instead of the same machine that hosts Labrynth, the Machines panel handles discovery and pairing. Most failures fall into a few categories.
+
+<details>
+<summary><strong>Pairing Troubleshooting</strong></summary>
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| Peripheral never appears in the Machines panel | mDNS multicast blocked on the LAN | On the peripheral, set `REACHER_BROKER_URL` to a reachable broker URL and restart `reacher`. The peripheral will then self-register via unicast HTTP. |
+| Peripheral appears, but pairing fails with "invalid code" | Code expired (codes rotate periodically) | Read the current code from the peripheral's terminal (or `journalctl -u reacher.service`) and try again. |
+| "Cannot reach machine" after pairing | Firewall blocking port 6229 on the peripheral | Open inbound TCP 6229 on the peripheral. On Raspberry Pi OS: `sudo ufw allow 6229/tcp`. |
+| Peripheral on a different VLAN than the host | Routing / multicast domain mismatch | Move both onto the same VLAN, or use the `REACHER_BROKER_URL` fallback. |
+| Peripheral shows offline despite being powered | `reacher.service` not running on the Pi | `sudo systemctl status reacher.service`. If inactive, `sudo systemctl start reacher.service` and check the journal for errors. |
+| Pairing succeeds but COM ports list is empty for the remote machine | Arduino is plugged into the host, not the peripheral | The Arduino must be plugged into the peripheral whose backend owns it. Move the cable to the Pi. |
+
+</details>
+
+> **Note:**
+> All host ↔ peripheral traffic is proxied through the host's local backend
+> (`/api/proxy/{deviceId}/...`); the peripheral's API key is stored on the host's
+> backend, never in the browser. WebSocket connections fetch a short-lived token
+> before opening, so the API key is never sent over the wire from the browser.
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -1534,7 +1570,7 @@ The CLI isn't working
 
 <!-- ============================================================ -->
 
-*This guide covers REACHER-Suite v2.0.0 (all paradigms: FR, PR, VI, Omission, Pavlovian — wired sessions).*
+*This guide covers REACHER-Suite v2 (develop) (all paradigms: FR, PR, VI, Omission, Pavlovian — wired sessions).*
 *For issues not covered here, check the [GitHub repository](https://github.com/Otis-Lab-MUSC/labrynth) or file an issue.*
 
 *Last updated: April 2026.*

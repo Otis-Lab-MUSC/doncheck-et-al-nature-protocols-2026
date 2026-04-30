@@ -5,8 +5,8 @@
 >
 > This is the abridged, top-to-bottom walkthrough for running a self-administration session
 > with the REACHER system. The example uses the Fixed-Ratio (FR) paradigm to match the
-> published protocol; all five paradigms (FR, PR, VI, Omission, Pavlovian) ship in v2.0.0
-> and follow the same setup pattern.
+> published protocol; all five paradigms (FR, PR, VI, Omission, Pavlovian) ship in the v2
+> series and follow the same setup pattern.
 >
 > For long-form installation guidance, per-device testing, and platform-specific issues,
 > see [SETUP_AND_USAGE.md](SETUP_AND_USAGE.md) and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
@@ -78,12 +78,16 @@ Labrynth is the desktop application that hosts the REACHER backend, the React da
 
 Download the latest installer for your platform from the
 [Labrynth releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases).
+Release artifacts follow a `labrynth-{VERSION}-{platform}.{ext}` naming convention,
+where `{VERSION}` is the release tag without the leading `v` (e.g., `2.1.18`).
 
 | Platform | File | Notes |
 |----------|------|-------|
-| **Windows** | `REACHER-2.0.0-windows-x64.exe` | Requires administrator privileges; installs to `C:\Program Files\REACHER\` |
-| **macOS** | `REACHER-2.0.0-macos-x64.dmg` | Right-click → **Open** on first launch (Gatekeeper bypass) |
-| **Linux** | `REACHER-2.0.0-linux-amd64.deb` | Install with `sudo apt install ./REACHER-2.0.0-linux-amd64.deb` |
+| **Windows** | `labrynth-{VERSION}-windows-x64.exe` | Requires administrator privileges; Inno Setup wizard |
+| **macOS** | `labrynth-{VERSION}-macos-arm64.dmg` | Right-click → **Open** on first launch (Gatekeeper bypass) |
+| **Linux (.deb)** | `labrynth_{VERSION}_amd64.deb` | Install with `sudo apt install ./labrynth_{VERSION}_amd64.deb` |
+| **Linux (portable)** | `labrynth-{VERSION}-linux-x64.tar.gz` | Extract and run `./labrynth` — no install required |
+| **Linux (AppImage)** | `labrynth-{VERSION}-linux-x64.AppImage` | `chmod +x` and run directly |
 
 The installer bundles the REACHER backend (FastAPI/Uvicorn), the dashboard, the firmware uploader (`avrdude`), and pre-compiled firmware hex files for all five paradigms. **No separate Python or Node.js installation is needed when using the installer.**
 
@@ -165,7 +169,7 @@ The same upload flow is also available from the terminal CLI — see [TROUBLESHO
 
 > **Note:**
 > All five paradigms share the `REACHERDevices` library at
-> `reacher-firmware/libraries/REACHERDevices/` and are stable in v2.0.0. Pre-compiled
+> `reacher-firmware/libraries/REACHERDevices/` and are stable in the v2 series. Pre-compiled
 > hex files for all paradigms are committed in `reacher-firmware/hex/` and are also
 > bundled inside the Labrynth installer.
 
@@ -219,20 +223,40 @@ For wiring diagrams, optocoupler isolation, and 3D-printable enclosure parts (le
 
 With Labrynth running, the dashboard open at `http://localhost:6229`, and the Arduino connected via USB:
 
-### 5.1 Create a Session
+### 5.1 Select a Machine
+
+The dashboard organizes sessions under "machines" — a *machine* is any host running the REACHER backend. Pick whether to run the session on the same computer that's hosting Labrynth (the default) or on a separate networked peripheral such as a Raspberry Pi.
+
+**Local (default):** When Labrynth launches, it probes `localhost:6229`; if the local backend is reachable, the **Local** machine card is auto-paired and selected in the **Machines** panel. No action required — proceed to [5.2](#52-create-a-session).
+
+**Remote (Raspberry Pi or other peripheral):**
+
+1. On the peripheral, install and start the REACHER backend (`pip install reacher`, then `python -m reacher`, or use the systemd service in the reacher repo's `scripts/install.sh`). At startup, the peripheral prints a **6-digit pairing code** to its terminal.
+2. In Labrynth's **Machines** panel, click **Add Machine**. Enter the peripheral's URL (e.g., `http://reacher-pi.local:6229`) and the 6-digit pairing code.
+3. Once paired, click the new machine card to make it active. All subsequent session, hardware, program, and data operations route to that peripheral via the local backend's proxy.
+
+> **Note:**
+> Discovery polling (mDNS) surfaces unpaired peripherals on the same LAN every ~10 s.
+> If multicast is blocked on your network, set `REACHER_BROKER_URL` on the peripheral
+> to enable unicast self-registration. See [SETUP_AND_USAGE.md](SETUP_AND_USAGE.md#connecting-a-remote-peripheral-raspberry-pi)
+> for the full Pi install + pairing walkthrough.
+
+The remaining steps (5.2–5.8) are identical regardless of whether you selected a local or remote machine.
+
+### 5.2 Create a Session
 
 1. In the **Session** panel, type a unique name for the box (e.g., `Box1`, `Mouse_001_Session_3`).
 2. Click **New wired session**. A tab labeled with your name appears in the dashboard.
 
-### 5.2 Connect to the Arduino
+### 5.3 Connect to the Arduino
 
 1. Click **Search Microcontrollers** and select the Arduino's port from the dropdown.
 2. Click **Connect**. On success:
    - The serial connection opens at **115200 baud**.
-   - The **Firmware Information** panel populates with sketch name (e.g., `fr.ino`), version (`v2.0.0`), and schedule (`FIXED_RATIO`).
+   - The **Firmware Information** panel populates with sketch name (e.g., `fr.ino`), firmware version, and schedule (`FIXED_RATIO`).
    - The connection jingle plays on the cue speaker (three ascending tones).
 
-### 5.3 Configure Hardware (Hardware Tab)
+### 5.4 Configure Hardware (Hardware Tab)
 
 In the **Hardware Tab**, arm the components used in your experiment using the toggle buttons. For the Fixed-Ratio walkthrough, arm at minimum:
 
@@ -247,7 +271,7 @@ Use the **Active Lever** menu to designate which lever delivers reward (LH or RH
 
 For lick circuit, laser, secondary cue/pump, and microscope, arm and configure as appropriate.
 
-### 5.4 Configure the Schedule (Schedule Tab)
+### 5.5 Configure the Schedule (Schedule Tab)
 
 In the **Schedule Tab**, set the within-trial dynamics:
 
@@ -259,7 +283,7 @@ In the **Schedule Tab**, set the within-trial dynamics:
 
 Click the upload icon next to each slider to send the value to the Arduino.
 
-### 5.5 Configure the Program (Program Tab)
+### 5.6 Configure the Program (Program Tab)
 
 In the **Program Tab**:
 
@@ -276,14 +300,14 @@ In the **Program Tab**:
 2. Or set the **Limit Type** (Time, Infusion, Both) and corresponding values manually. Click **Set Program Limit** to apply.
 3. Set the export filename and folder. The placeholder/recommended folder is `~/REACHER/DATA/`. If left blank, exports default to `~/Downloads/`. Click **Set File Configuration** to apply.
 
-### 5.6 Start the Session (Monitor Tab)
+### 5.7 Start the Session (Monitor Tab)
 
 1. Switch to the **Monitor Tab**.
 2. Click **Start** (play icon). The **Settings Overview** modal opens for confirmation.
 3. Review settings and click **Ready to run?** to begin.
 4. The session header updates and the live timeline begins displaying lever presses, infusions, licks, and other events as they occur.
 
-### 5.7 Pause / Stop
+### 5.8 Pause / Stop
 
 - **Pause** (yellow): suspends dashboard processing; the Arduino keeps running. Click again to resume. Paused time is subtracted from the session duration.
 - **Stop** (red): ends the session permanently. Sends an END command to the Arduino, closes the serial connection, and triggers data finalization.
@@ -396,4 +420,4 @@ Both are outside the scope of this protocol guide. See `pynapse`'s README for in
 
 ---
 
-*Document version: REACHER-Suite v2.0.0.*
+*Document version: REACHER-Suite v2 (develop). Last updated: April 2026.*
