@@ -1272,12 +1272,12 @@ git log --oneline -10
 
     ┌──────────────────────┐      ┌──────────────────────┐
     │   Browser (React 19) │      │   Terminal CLI        │
-    │   http://localhost:   │      │   (prompt_toolkit)    │
+    │   http://localhost:  │      │   (prompt_toolkit)    │
     │     5173 (dev)       │      │   reacher-cli         │
     │     6229 (prod)      │      │                       │
     └──────────┬───────────┘      └──────────┬────────────┘
-               │ REST + WebSocket             │ HTTP + WebSocket
-               └──────────┬──────────────────-┘
+               │ REST + WebSocket            │ HTTP + WebSocket
+               └──────────┬──────────────────┘
                           │
                           ↓
                ┌──────────────────────┐
