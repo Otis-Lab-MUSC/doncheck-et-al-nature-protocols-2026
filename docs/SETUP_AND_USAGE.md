@@ -894,7 +894,14 @@ frame_index,timestamp_ms
 3,1066
 ```
 
-**Default destination:** `~/Downloads/` (fallback: `~/REACHER/DATA/`)
+**Export destination:**
+
+The Data panel writes the user-initiated export to whatever path you type in the destination field.
+
+- **Recommended (placeholder shown in the field):** `~/REACHER/DATA/`
+- **If the field is left blank:** `~/Downloads/`
+
+This is **separate** from the per-session backend logs at `~/REACHER/LOG/{YYYY-MM-DD_HH-MM-SS}/`, which are written automatically every session regardless of whether you click Export. The backend log folder contains `controller_log.json`, `interface_log.log`, `event_log.jsonl`, `behavior_events.csv`, and `frame_timestamps.csv` (if microscope was armed). Use it for crash recovery or post-hoc inspection.
 
 ### Multiple Sessions
 
@@ -1062,7 +1069,8 @@ REACHER supports running multiple sessions simultaneously:
   1. Verify you stopped the session before exporting
   2. Check file permissions in save directory
   3. Ensure destination directory exists and is writable
-  4. Check default location: `~/Downloads/` or fallback `~/REACHER/DATA/`
+  4. Check the location you typed into the export field; if you left it blank, look in `~/Downloads/` (the placeholder default is `~/REACHER/DATA/`)
+  5. As a fallback, the per-session backend logs at `~/REACHER/LOG/{timestamp}/` are written every session — `behavior_events.csv` and `frame_timestamps.csv` are present there even if the user export step failed
 
 **Problem: Data file is empty or incomplete**
 - **Solutions:**
@@ -1251,4 +1259,4 @@ If using these resources, please cite:
 
 ---
 
-*Last updated: March 2026*
+*Last updated: April 2026*

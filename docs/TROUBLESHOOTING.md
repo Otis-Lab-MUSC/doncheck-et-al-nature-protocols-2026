@@ -1,11 +1,11 @@
 # REACHER System Troubleshooting Guide
 
-> 📝 **Note:**
+> **Note:**
 > **REACHER** — Rodent Experiment Application Controls and Handling Ecosystem for Research
 >
 > This guide covers the entire pipeline from physical hardware setup through data export
-> for the Fixed-Ratio (FR) paradigm using wired connections. It is written for users with
-> no prior programming or lab hardware experience.
+> for all five paradigms (FR, PR, VI, Omission, Pavlovian) using wired connections. It is
+> written for users with no prior programming or lab hardware experience.
 
 <a id="table-of-contents"></a>
 
@@ -19,13 +19,14 @@
 | 4 | [Connecting to the Arduino](#connecting) | Session creation, COM ports, drivers |
 | 5 | [Configuring an Experiment](#configuring) | Hardware arming, schedule timing, session limits |
 | 6 | [Running an Experiment](#running) | Start, monitor, pause, stop, recovery |
-| 7 | [Hardware Testing & Diagnostics](#hardware-testing) | Per-device testing procedures |
-| 8 | [Data Export & Validation](#data-export) | Export, verification, raw logs |
-| 9 | [Platform-Specific Issues](#platform-issues) | Windows, macOS, Linux |
-| 10 | [Troubleshooting Flowcharts](#flowcharts) | Quick-reference decision trees |
-| 11 | [Glossary](#glossary) | Terms and definitions |
+| 7 | [CLI Usage](#cli-usage) | Terminal interface for experiment control |
+| 8 | [Hardware Testing & Diagnostics](#hardware-testing) | Per-device testing procedures |
+| 9 | [Data Export & Validation](#data-export) | Export, verification, raw logs |
+| 10 | [Platform-Specific Issues](#platform-issues) | Windows, macOS, Linux |
+| 11 | [Troubleshooting Flowcharts](#flowcharts) | Quick-reference decision trees |
+| 12 | [Glossary](#glossary) | Terms and definitions |
 
-> 💡 **Tip:**
+> **Tip:**
 > Click any section heading to expand it.
 
 <!-- ============================================================ -->
@@ -38,25 +39,25 @@ The REACHER system has three main components that work together:
 
 ```
 +-------------------+       USB Cable         +-------------------+      Browser       +-------------------+
-|                   |  (USB-A to USB-B)       |                   |  (localhost:7007)  |                   |
+|                   |  (USB-A to USB-B)       |                   | (localhost:6229)   |                   |
 |  Arduino UNO      | <-------------------->  |  Your Computer    | <----------------> |  Dashboard        |
-|  (Firmware)       |    Serial @ 115200      |  (The Labrynth)   |    Panel Server    |  (Browser Tab)    |
-|                   |       baud              |                   |                    |                   |
+|  (Firmware)       |    Serial @ 115200      |  (REACHER backend)|  FastAPI/Uvicorn   |  (React 19 App)   |
+|                   |       baud              |                   |   REST + WebSocket |                   |
 +-------------------+                         +-------------------+                    +-------------------+
-  Controls hardware                            Runs the launcher                        Where you interact
-  (levers, pump,                               and Panel server                         with the experiment
-   speaker, laser)
+  Controls hardware                            Runs the headless                        Where you interact
+  (levers, pumps,                              FastAPI backend                          with the experiment
+   speakers, laser)                            on port 6229
 ```
 
 ### What Each Piece Does
 
 | Component | What It Is | What It Does |
 |-----------|-----------|--------------|
-| **Arduino UNO** | A small circuit board | Controls all physical hardware (levers, pump, speaker, laser, lick circuit, imaging) |
+| **Arduino UNO** | A small circuit board | Controls all physical hardware (levers, pumps, speakers, laser, lick circuit, imaging) |
 | **Firmware** | Code uploaded to the Arduino | Listens for commands, monitors hardware, sends data back over USB |
-| **The Labrynth** | Application you install on your computer | Launches the dashboard server and manages the connection to the Arduino |
-| **Dashboard** | Web page in your browser | Where you connect, configure, run, and monitor experiments |
-| **REACHER library** | Software running behind the dashboard | Handles serial communication, data collection, and export |
+| **REACHER backend** | Headless FastAPI/Uvicorn server on your computer | Manages serial communication, session state, data collection, and serves the dashboard |
+| **Dashboard** | React 19 web application in your browser | Where you connect, configure, run, and monitor experiments |
+| **CLI** | Terminal interface (prompt_toolkit) | Alternative to the browser — full experiment control from a terminal |
 
 <details>
 <summary><strong>Pin Assignment Reference</strong></summary>
@@ -66,13 +67,15 @@ The Arduino UNO connects to each hardware component through specific pins:
 | Pin | Device | Direction | Description |
 |-----|--------|-----------|-------------|
 | 2 | Microscope Timestamp | INPUT (Interrupt) | Receives frame sync signals from imaging system |
-| 3 | Cue Speaker | OUTPUT | Plays tones through a connected speaker |
-| 4 | Pump | OUTPUT | Activates the infusion pump |
+| 3 | Cue Speaker (Primary) | OUTPUT | Plays tones through a connected speaker |
+| 4 | Pump (Primary) | OUTPUT | Activates the primary infusion pump |
 | 5 | Lick Circuit | INPUT_PULLUP | Detects lick contact on the spout |
 | 6 | Laser | OUTPUT | Controls optogenetic laser stimulation |
+| 7 | Cue Speaker (Secondary) | OUTPUT | Plays tones through a second speaker |
+| 8 | Pump (Secondary) | OUTPUT | Activates the secondary infusion pump |
 | 9 | Microscope Trigger | OUTPUT | Sends trigger pulses to imaging system |
 | 10 | Right-Hand (RH) Lever | INPUT_PULLUP | Detects right lever presses |
-| 13 | Left-Hand (LH) Lever | INPUT_PULLUP | Detects left lever presses |
+| 12 | Left-Hand (LH) Lever | INPUT_PULLUP | Detects left lever presses |
 
 </details>
 
@@ -82,17 +85,17 @@ The Arduino UNO connects to each hardware component through specific pins:
 ```
                             Arduino UNO
                     +-------------------------+
-                    |                     [13] |-----> Left-Hand Lever
-                    |                     [12] |
+                    |                     [13] |
+                    |                     [12] |-----> Left-Hand Lever
                     |                     [11] |
                     |                     [10] |-----> Right-Hand Lever
                     |                      [9] |-----> Microscope Trigger (OUTPUT)
-                    |                      [8] |
-                    |                      [7] |
+                    |                      [8] |-----> Secondary Pump
+                    |                      [7] |-----> Secondary Cue Speaker
                     |                      [6] |-----> Laser
                     |                      [5] |-----> Lick Circuit
-                    |                      [4] |-----> Pump
-                    |                      [3] |-----> Cue Speaker
+                    |                      [4] |-----> Primary Pump
+                    |                      [3] |-----> Primary Cue Speaker
                     |                      [2] |-----> Microscope Timestamp (INPUT/INT0)
                     |                      [1] |
                     |                      [0] |
@@ -112,7 +115,7 @@ The Arduino UNO connects to each hardware component through specific pins:
 
 </details>
 
-> 📝 **Note:**
+> **Note:**
 > Each hardware component also needs a ground (GND) connection. Use the
 > GND pins on the Arduino. Some components (like the laser) may also require an
 > external power supply.
@@ -121,7 +124,7 @@ The Arduino UNO connects to each hardware component through specific pins:
 
 - **Cable:** USB-A to USB-B (the same type used by many printers)
 - **Baud rate:** 115200 (this is set automatically — you do not need to configure it)
-- **Protocol:** JSON messages sent over the USB serial connection
+- **Protocol:** JSON messages sent over the USB serial connection, newline-delimited
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -136,27 +139,27 @@ The Arduino UNO connects to each hardware component through specific pins:
 ### 2.1 Download & Install
 
 Download the latest installer for your platform from the
-[Labrynth releases page](https://github.com/Otis-Lab-MUSC/Labrynth/releases).
+[REACHER releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases).
 
 <details>
 <summary><h3>Windows</h3></summary>
 
-1. Download `labrynth-1.0-x64.exe`
+1. Download `REACHER-{VERSION}-windows-x64.exe`
 2. Double-click the installer
 3. **You will need administrator privileges** — click "Yes" when prompted by Windows
 4. Follow the Inno Setup wizard (accept defaults)
-5. The application installs to `C:\Program Files\The Labrynth\`
+5. The application installs to `C:\Program Files\REACHER\`
 6. A desktop shortcut is created (optional)
-7. The application launches automatically after installation
+7. The REACHER backend starts automatically after installation
 
 </details>
 
 <details>
 <summary><h3>macOS</h3></summary>
 
-1. Download `labrynth_x64.dmg`
+1. Download `REACHER-{VERSION}-macos-x64.dmg`
 2. Double-click the `.dmg` file to mount it
-3. Drag "Labrynth" to your Applications folder
+3. Drag "REACHER" to your Applications folder
 4. **First launch — Gatekeeper bypass:**
    - Right-click (or Control-click) the app → select **Open**
    - Click **Open** in the dialog that appears
@@ -168,40 +171,39 @@ Download the latest installer for your platform from the
 <details>
 <summary><h3>Linux</h3></summary>
 
-1. Download `labrynth_amd64.deb`
+1. Download `REACHER-{VERSION}-linux-amd64.deb`
 2. Open a terminal and run:
    ```bash
-   sudo apt install ./labrynth_amd64.deb
+   sudo apt install ./REACHER-{VERSION}-linux-amd64.deb
    ```
-3. The application installs to `/opt/labrynth/` with a symlink at `/usr/local/bin/labrynth`
-4. If you get errors about missing Qt libraries, see [Section 9.3](#93-linux)
+3. The application installs to `/opt/reacher/` with a symlink at `/usr/local/bin/reacher`
 
 </details>
 
 ### 2.2 First Launch
 
-When you open The Labrynth:
+When you launch REACHER:
 
-1. A small **launcher window** appears (300 x 150 pixels) with the text
-   "Opening session in browser..."
-2. Your default web browser opens automatically to `http://localhost:7007`
-3. The launcher window updates to "Session running in browser. (keep this window open)"
-4. The dashboard loads in your browser with a dark theme
+1. The **backend starts headlessly** — there is no launcher window. The FastAPI/Uvicorn
+   server starts in the background on port 6229.
+2. Your default web browser opens automatically to `http://localhost:6229`
+3. The dashboard loads in your browser with a dark theme
+4. Alternatively, you can use the [CLI](#cli-usage) from a terminal
 
-> ❗ **Important:**
-> Keep the launcher window open for the entire session. Closing it
-> shuts down the dashboard server.
+> **Important:**
+> The backend runs as a background process. Closing the browser tab does not
+> shut down the backend — it continues running so you can reconnect. To shut down
+> the backend, use the shutdown endpoint or close the process.
 
 <details>
 <summary><strong>First Launch Troubleshooting</strong></summary>
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| Launcher window doesn't appear | Missing Qt/PySide6 libraries (Linux) | Reinstall the application; see [Section 9.3](#93-linux) for missing libraries |
-| Browser doesn't open automatically | No default browser set, or port 7007 already in use | Manually open your browser and go to `http://localhost:7007`; if port is in use, close the other application using it |
-| "Server Not Running" dialog appears | The dashboard server crashed on startup | Close and restart The Labrynth; check for other Panel servers running on port 7007 |
+| Browser doesn't open automatically | No default browser set, or port 6229 already in use | Manually open your browser and go to `http://localhost:6229`; if port is in use, close the other application using it |
+| "Connection refused" in browser | The backend failed to start | Check the terminal/console for error messages; verify port 6229 is not already in use |
 | Blank white page in browser | Slow initial load | Wait 10–15 seconds, then refresh the browser page |
-| "Quit the Labrynth" dialog when closing | Normal — confirms you want to shut down | Click "Yes" to quit, or "No" to keep running |
+| Backend doesn't start | Port 6229 is occupied by another process | Find and stop the process using port 6229, then restart REACHER |
 
 </details>
 
@@ -219,51 +221,93 @@ When you open The Labrynth:
 
 Before connecting to the software, make sure you have:
 
-- [ ] **Arduino UNO** board
+- [ ] **Arduino UNO** board (or Arduino Mega for expanded I/O)
 - [ ] **USB-A to USB-B cable** (connects the Arduino to your computer)
-- [ ] **Lever switch(es)** — wired to pin 10 (right) and/or pin 13 (left)
-- [ ] **Infusion pump** — wired to pin 4
-- [ ] **Cue speaker** (8Ω impedance typical) — wired to pin 3
+- [ ] **Lever switch(es)** — wired to pin 10 (right) and/or pin 12 (left)
+- [ ] **Primary infusion pump** — wired to pin 4
+- [ ] **Primary cue speaker** (8Ω impedance typical) — wired to pin 3
 - [ ] **Laser** (if using optogenetics) — wired to pin 6, with external power supply
 - [ ] **Lick circuit** (if measuring licks) — wired to pin 5
 - [ ] **Imaging trigger/timestamp** (if using microscopy) — trigger on pin 9, timestamp on pin 2
-
-You will also need the **Arduino IDE** to upload firmware:
-- Download from [https://www.arduino.cc/en/software](https://www.arduino.cc/en/software)
+- [ ] **Secondary cue speaker** (optional) — wired to pin 7
+- [ ] **Secondary infusion pump** (optional) — wired to pin 8
 
 ### 3.2 Uploading Firmware
 
-Follow these steps to upload the Fixed-Ratio firmware to your Arduino:
+There are two methods for uploading firmware to the Arduino:
 
-1. **Install the Arduino IDE** (see link above)
+<details>
+<summary><h4>Method 1: Built-in Upload (Dashboard or CLI)</h4></summary>
+
+REACHER includes built-in firmware upload using `avrdude` and precompiled hex files.
+No Arduino IDE installation is required.
+
+1. Connect the Arduino via USB
+2. In the dashboard, go to the **Session** panel
+3. Select the target **port** from the dropdown
+4. Select the **paradigm** (FR, PR, VI, Omission, or Pavlovian)
+5. Select the **board** (Arduino UNO or Arduino Mega)
+6. Click **Upload Firmware**
+7. Wait for the upload to complete — a success message appears when finished
+
+**Via CLI:**
+```
+reacher-cli
+> Select: Upload Firmware
+> Select port: COM3
+> Select paradigm: fr
+> Select board: uno
+```
+
+The built-in uploader uses precompiled `.hex` files from the `hex/` directory. These
+are compiled from the source sketches during the build process.
+
+</details>
+
+<details>
+<summary><h4>Method 2: Manual Upload (Arduino IDE)</h4></summary>
+
+Use this method if you need to modify firmware source code before uploading.
+
+1. **Install the Arduino IDE:**
+   - Download from [https://www.arduino.cc/en/software](https://www.arduino.cc/en/software)
 2. **Install the ArduinoJson library:**
    - Open Arduino IDE
    - Go to **Sketch → Include Library → Manage Libraries...**
    - Search for **"ArduinoJson"**
    - Click **Install**
-3. **Open the firmware file:**
-   - Navigate to `reacher-firmware/operant_FR/`
-   - Open `operant_FR.ino` in the Arduino IDE
-4. **Select your board:**
-   - Go to **Tools → Board → Arduino AVR Boards → Arduino UNO**
-5. **Select your port:**
+3. **Install the REACHERDevices library:**
+   - Copy the `libraries/REACHERDevices/` folder from the `reacher-firmware` repository
+     into your Arduino libraries folder (typically `~/Arduino/libraries/`)
+4. **Open the firmware file:**
+   - Navigate to the paradigm folder (e.g., `reacher-firmware/fr/`)
+   - Open the sketch file (e.g., `fr.ino`) in the Arduino IDE
+5. **Select your board:**
+   - Go to **Tools → Board → Arduino AVR Boards → Arduino UNO** (or Arduino Mega)
+6. **Select your port:**
    - Go to **Tools → Port** and select the port showing your Arduino
    - Windows: `COM3`, `COM4`, etc.
    - macOS: `/dev/cu.usbserial-*` or `/dev/cu.usbmodem*`
    - Linux: `/dev/ttyUSB0` or `/dev/ttyACM0`
-6. **Upload:**
+7. **Upload:**
    - Click the **Upload** button (right arrow icon) or press <kbd>Ctrl</kbd>+<kbd>U</kbd> / <kbd>Cmd</kbd>+<kbd>U</kbd>
    - Wait for "Done uploading" message
+
+</details>
 
 <details>
 <summary><strong>Which Firmware for Which Paradigm</strong></summary>
 
-| Paradigm | Firmware Folder | Status |
-|----------|----------------|--------|
-| Fixed-Ratio (FR) | `operant_FR/` | Stable — covered in this guide |
-| Progressive-Ratio (PR) | `operant_PR/` | Beta |
-| Variable-Interval (VI) | `operant_VI/` | Beta |
-| Omission | `operant_OM/` | Beta |
+| Paradigm | Firmware Folder | Sketch File | Status |
+|----------|----------------|-------------|--------|
+| Fixed-Ratio (FR) | `fr/` | `fr.ino` | Stable (v2.0.0) |
+| Progressive-Ratio (PR) | `pr/` | `pr.ino` | Stable (v2.0.0) |
+| Variable-Interval (VI) | `vi/` | `vi.ino` | Stable (v2.0.0) |
+| Omission | `omission/` | `omission.ino` | Stable (v2.0.0) |
+| Pavlovian | `pavlovian/` | `pavlovian.ino` | Stable (v2.0.0) |
+
+All paradigms use the shared **REACHERDevices** library (`libraries/REACHERDevices/`)
+which provides common device classes, pin assignments, and the Scheduler engine.
 
 </details>
 
@@ -272,10 +316,13 @@ Follow these steps to upload the Fixed-Ratio firmware to your Arduino:
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| "Board not found" in Arduino IDE | Wrong board selected or USB not connected | Go to Tools → Board → select **Arduino UNO**; check USB cable is plugged in |
+| "Board not found" in Arduino IDE | Wrong board selected or USB not connected | Go to Tools → Board → select **Arduino UNO** (or Mega); check USB cable is plugged in |
 | Upload fails with "avrdude" error | Wrong COM port selected or Arduino not connected | Go to Tools → Port → select the correct port; try unplugging and replugging USB |
 | `ArduinoJson.h: No such file or directory` | ArduinoJson library not installed | Install it: Sketch → Include Library → Manage Libraries → search "ArduinoJson" → Install |
+| `REACHERDevices.h: No such file or directory` | REACHERDevices library not installed | Copy `libraries/REACHERDevices/` to your Arduino libraries folder |
+| Built-in upload fails | avrdude not found or port is busy | Ensure no other program is using the port (close Arduino IDE Serial Monitor); check that avrdude is bundled with the installation |
 | Upload succeeds but nothing happens | This is normal | The firmware waits for a connection from the dashboard before doing anything |
+| Watchdog timer resets the Arduino | Firmware loop took longer than 8 seconds | This is a safety feature — if the main loop stalls, the watchdog resets the Arduino to prevent hardware damage |
 
 </details>
 
@@ -288,18 +335,20 @@ After uploading firmware, verify each component is wired correctly:
 
 | Pin | Device | How to Test |
 |-----|--------|-------------|
-| 10 | Right Lever | Press lever → check for response in dashboard (Section 7.1) |
-| 13 | Left Lever | Press lever → check for response in dashboard (Section 7.1) |
-| 3 | Cue Speaker | Connect to Arduino → should hear jingle when dashboard connects (Section 7.2) |
-| 4 | Pump | Use test button in Hardware Tab (Section 7.3) |
-| 5 | Lick Circuit | Touch spout → check for lick events in dashboard (Section 7.5) |
-| 6 | Laser | Use test button in Hardware Tab (Section 7.4) |
-| 9 | Microscope Trigger | Verify trigger output with oscilloscope or imaging software (Section 7.6) |
-| 2 | Microscope Timestamp | Verify frame signals are received (Section 7.6) |
+| 10 | Right Lever | Press lever → check for response in dashboard ([Section 8.1](#81-lever-switch-testing)) |
+| 12 | Left Lever | Press lever → check for response in dashboard ([Section 8.1](#81-lever-switch-testing)) |
+| 3 | Primary Cue Speaker | Connect to Arduino → should hear jingle when dashboard connects ([Section 8.2](#82-cue-speaker-testing)) |
+| 4 | Primary Pump | Use test button in Hardware Tab ([Section 8.3](#83-pump-testing)) |
+| 5 | Lick Circuit | Touch spout → check for lick events in dashboard ([Section 8.5](#85-lick-circuit-testing)) |
+| 6 | Laser | Use test button in Hardware Tab ([Section 8.4](#84-laser-testing)) |
+| 7 | Secondary Cue Speaker | Arm secondary cue → use test button ([Section 8.2](#82-cue-speaker-testing)) |
+| 8 | Secondary Pump | Arm secondary pump → use test button ([Section 8.3](#83-pump-testing)) |
+| 9 | Microscope Trigger | Verify trigger output with oscilloscope or imaging software ([Section 8.6](#86-imaging-trigger--frame-timestamps)) |
+| 2 | Microscope Timestamp | Verify frame signals are received ([Section 8.6](#86-imaging-trigger--frame-timestamps)) |
 
 </details>
 
-> ❗ **Important:**
+> **Important:**
 > Always connect GND wires between the Arduino and each component.
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
@@ -317,7 +366,33 @@ After uploading firmware, verify each component is wired correctly:
 1. In the dashboard, find the text field at the top of the page
 2. Type a **unique name** for your behavior box (e.g., "Box1", "Chamber_A")
 3. Click **"New wired session"**
-4. A new tab appears labeled `LOCAL - <your name>`
+4. A new session tab appears labeled with your name
+5. Each session receives a unique **Session ID** for tracking
+
+<details>
+<summary><strong>Session State Machine</strong></summary>
+
+Each session moves through these states:
+
+```
+idle → uploading → connected → running → paused → stopped
+ │                    │           │          │
+ │                    │           │          └──→ running (resume)
+ │                    │           └──→ stopped
+ │                    └──→ idle (disconnect)
+ └──→ uploading (firmware upload)
+```
+
+| State | Meaning |
+|-------|---------|
+| **idle** | Session created, no Arduino connected |
+| **uploading** | Firmware is being uploaded to the Arduino |
+| **connected** | Arduino connected, ready to configure |
+| **running** | Experiment is actively running |
+| **paused** | Experiment paused — can resume or stop |
+| **stopped** | Experiment ended — data auto-exported |
+
+</details>
 
 <details>
 <summary><strong>Troubleshooting — Session Creation</strong></summary>
@@ -332,7 +407,7 @@ After uploading firmware, verify each component is wired correctly:
 ### 4.2 Finding the COM Port
 
 1. Make sure your Arduino is connected via USB
-2. In the **Home Tab**, click **"Search Microcontrollers"**
+2. In the **Session** panel, click **"Search Microcontrollers"**
 3. A dropdown list of available ports appears
 4. Select your Arduino's port from the dropdown
 5. Click **Connect**
@@ -345,6 +420,11 @@ After uploading firmware, verify each component is wired correctly:
 | Linux | `/dev/ttyUSB0` or `/dev/ttyACM0` |
 | macOS | `/dev/cu.usbserial-*` or `/dev/cu.usbmodem*` |
 
+> **Important:**
+> **Port locking:** Each serial port can only be used by one session at a time.
+> If a port is already in use by another session, it will not appear in the
+> dropdown or will show as locked. Disconnect the other session first.
+
 <details>
 <summary><strong>Connection Troubleshooting</strong></summary>
 
@@ -352,9 +432,25 @@ After uploading firmware, verify each component is wired correctly:
 |---------|-------------|-----|
 | No ports appear in dropdown | Arduino not plugged in | Plug in the USB cable, then click "Search Microcontrollers" again |
 | No ports appear (Arduino IS plugged in) | Missing USB-to-serial driver | Install the driver for your Arduino's USB chip (see below) |
-| Port appears but connection fails | Port is in use by another program | Close the Arduino IDE Serial Monitor or any other serial program |
-| "Loaded firmware is incompatible. Please upload a qualified file." | Wrong firmware uploaded to Arduino | Upload the correct firmware (Section 3.2) |
+| Port appears but connection fails | Port is in use by another program or session | Close the Arduino IDE Serial Monitor or any other serial program; check for other REACHER sessions using the port |
+| "Loaded firmware is incompatible. Please upload a qualified file." | Wrong firmware uploaded to Arduino | Upload the correct firmware ([Section 3.2](#32-uploading-firmware)) |
 | Connection succeeds then immediately drops | Faulty USB cable or loose connection | Try a different USB cable; ensure both ends are firmly plugged in |
+| Port shows as locked | Another REACHER session is using this port | Disconnect the other session first, or use a different Arduino |
+
+</details>
+
+<details>
+<summary><strong>Multi-Session Usage</strong></summary>
+
+REACHER supports running multiple sessions simultaneously, each connected to a
+different Arduino on a different serial port. This is useful for running multiple
+behavior boxes at the same time.
+
+**Rules:**
+- Each session must use a unique serial port (port locking is enforced)
+- Each session has its own Session ID and independent state
+- Sessions can be in different states (one running, another configuring)
+- Each session exports its own independent data files
 
 </details>
 
@@ -393,17 +489,17 @@ When the connection succeeds:
 
 1. **Connection jingle plays** — three ascending tones (500 Hz → 1000 Hz → 1500 Hz)
    from the cue speaker
-2. **Firmware information appears** in the Home Tab, showing:
-   - Sketch name: `operant_FR-beta.ino`
-   - Version: `v1.1.1`
+2. **Firmware information appears** in the Session panel, showing:
+   - Sketch name: e.g., `fr.ino`
+   - Version: `v2.0.0`
    - Baud rate: `115200`
-   - Schedule: `FIXED_RATIO`
+   - Schedule: e.g., `FIXED_RATIO`
 
 **If no jingle plays:**
 - Check that the cue speaker is wired to **pin 3** and a **GND** pin
 - The jingle only plays if the speaker is physically connected — it does not require
   arming the cue in the Hardware Tab
-- See [Section 7.2](#72-cue-speaker-testing) for speaker diagnostics
+- See [Section 8.2](#82-cue-speaker-testing) for speaker diagnostics
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -425,32 +521,38 @@ the experiment. When disarmed, the device is ignored — it will not respond to 
 or generate data. Think of it like a safety switch.
 
 Each device has a toggle button showing a lock icon:
-- **Locked (🔒):** Device is disarmed (off)
-- **Unlocked (🔓):** Device is armed (on)
+- **Locked:** Device is disarmed (off)
+- **Unlocked:** Device is armed (on)
 
 **Arming each component:**
 
-| Device | What to Do | What It Enables |
-|--------|-----------|-----------------|
-| RH Lever | Toggle the Right-Hand Lever arm button | Detects presses on the right lever |
-| LH Lever | Toggle the Left-Hand Lever arm button | Detects presses on the left lever |
-| Active Lever | Select which lever (LH or RH) is the "active" (reinforced) lever | Presses on the active lever count toward rewards |
-| Cue | Toggle the Cue arm button | Plays a tone when the animal earns a reward |
-| Pump | Toggle the Pump arm button | Delivers infusion when the animal earns a reward |
-| Laser | Toggle the Laser arm button | Activates laser stimulation (if using optogenetics) |
-| Lick Circuit | Toggle the Lick Circuit arm button | Records lick events |
-| Microscope | Toggle the Microscope arm button | Records imaging frame timestamps |
+| Device | Pin | What to Do | What It Enables |
+|--------|-----|-----------|-----------------|
+| RH Lever | 10 | Toggle the Right-Hand Lever arm button | Detects presses on the right lever |
+| LH Lever | 12 | Toggle the Left-Hand Lever arm button | Detects presses on the left lever |
+| Active Lever | — | Select which lever (LH or RH) is the "active" (reinforced) lever | Presses on the active lever count toward rewards |
+| Primary Cue | 3 | Toggle the Cue arm button | Plays a tone when the animal earns a reward |
+| Primary Pump | 4 | Toggle the Pump arm button | Delivers infusion when the animal earns a reward |
+| Secondary Cue | 7 | Toggle the Secondary Cue arm button | Plays a tone on the secondary speaker (for Pavlovian CS+/CS- or advanced paradigms) |
+| Secondary Pump | 8 | Toggle the Secondary Pump arm button | Delivers infusion through the secondary pump |
+| Laser | 6 | Toggle the Laser arm button | Activates laser stimulation (if using optogenetics) |
+| Lick Circuit | 5 | Toggle the Lick Circuit arm button | Records lick events |
+| Microscope | 9, 2 | Toggle the Microscope arm button | Records imaging frame timestamps |
+
+> **Note:**
+> The Arduino Mega provides additional I/O pins for expanded hardware configurations.
+> When using a Mega, select "Arduino Mega" as the board type during firmware upload.
 
 <details>
 <summary><strong>Hardware Troubleshooting</strong></summary>
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| Device won't arm (no response when clicking) | Arduino not connected | Go to the Home Tab and verify connection status |
-| Pump test runs but no fluid delivers | Tubing disconnected or pump wired incorrectly | Check tubing connections; verify pump is wired to **pin 4** |
-| Cue test plays no sound | Speaker not connected or wired wrong | Check speaker is wired to **pin 3** and GND; test speaker independently |
+| Device won't arm (no response when clicking) | Arduino not connected | Go to the Session panel and verify connection status |
+| Pump test runs but no fluid delivers | Tubing disconnected or pump wired incorrectly | Check tubing connections; verify pump is wired to **pin 4** (primary) or **pin 8** (secondary) |
+| Cue test plays no sound | Speaker not connected or wired wrong | Check speaker is wired to **pin 3** (primary) or **pin 7** (secondary) and GND; test speaker independently |
 | Laser test does nothing | Laser not connected or not powered | Check wiring to **pin 6**; verify external power supply for the laser |
-| Lever shows no response to press | Wrong pin or wiring issue | Right lever → **pin 10**, Left lever → **pin 13**; check switch continuity with a multimeter |
+| Lever shows no response to press | Wrong pin or wiring issue | Right lever → **pin 10**, Left lever → **pin 12**; check switch continuity with a multimeter |
 
 </details>
 
@@ -459,10 +561,13 @@ Each device has a toggle button showing a lock icon:
 These parameters control the timing and rules of your experiment. All times are
 entered in **seconds** in the dashboard and converted to milliseconds for the Arduino.
 
+<details>
+<summary><strong>Fixed-Ratio (FR) Parameters</strong></summary>
+
 | Parameter | What It Means | Default | Range |
 |-----------|--------------|---------|-------|
 | **Fixed Ratio** | How many lever presses before a reward is given | 1 (FR1 = every press is rewarded) | 1–50 |
-| **Timeout Duration** | Period following reward delivery where rewards do not occur - active presses during this period do not trigger cue or reward | 20 seconds | 0–600 seconds |
+| **Timeout Duration** | Period following reward delivery where rewards do not occur — active presses during this period do not trigger cue or reward | 20 seconds | 0–600 seconds |
 | **Trace Duration** | Gap between the cue tone ending and the pump starting | 0 seconds | 0–60 seconds |
 
 **How these work together (FR1 example with defaults):**
@@ -484,13 +589,72 @@ Animal presses active lever
   Timeout ends — next press can earn another reward
 ```
 
-> ⚠️ **Warning:**
+</details>
+
+<details>
+<summary><strong>Progressive-Ratio (PR) Parameters</strong></summary>
+
+| Parameter | What It Means | Default |
+|-----------|--------------|---------|
+| **Starting Ratio** | Initial number of presses required for the first reward | 1 |
+| **Step Size** | How much the ratio increases after each reward | Configurable |
+| **Timeout Duration** | Post-reward timeout period | 20 seconds |
+| **Breakpoint** | Session ends when the animal fails to complete the current ratio within the breakpoint time | Configurable |
+
+The PR paradigm requires the `pr.ino` firmware.
+
+</details>
+
+<details>
+<summary><strong>Variable-Interval (VI) Parameters</strong></summary>
+
+| Parameter | What It Means | Default |
+|-----------|--------------|---------|
+| **Mean Interval** | Average time between reward availability windows | Configurable |
+| **Timeout Duration** | Post-reward timeout period | 20 seconds |
+
+The VI paradigm requires the `vi.ino` firmware. A press during the availability
+window triggers the reward chain.
+
+</details>
+
+<details>
+<summary><strong>Omission Parameters</strong></summary>
+
+| Parameter | What It Means | Default |
+|-----------|--------------|---------|
+| **Omission Duration** | How long the animal must withhold pressing to earn a reward | Configurable |
+| **Timeout Duration** | Post-reward timeout period | 20 seconds |
+
+The Omission paradigm requires the `omission.ino` firmware. A reward is delivered
+when the animal does NOT press for the configured duration.
+
+</details>
+
+<details>
+<summary><strong>Pavlovian Parameters</strong></summary>
+
+| Parameter | What It Means | Default |
+|-----------|--------------|---------|
+| **CS+ Duration** | Duration of the conditioned stimulus (rewarded) | Configurable |
+| **CS- Duration** | Duration of the non-rewarded stimulus | Configurable |
+| **ITI** | Inter-trial interval between trials | Configurable |
+| **Number of Trials** | Total trials per session | Configurable |
+
+The Pavlovian paradigm requires the `pavlovian.ino` firmware and uses a separate
+`PavlovianScheduler` with a trial-based state machine. This paradigm may use the
+secondary cue speaker (pin 7) for CS- tones and the secondary pump (pin 8).
+
+</details>
+
+> **Warning:**
+> **Paradigm-specific parameters** are only active when the matching firmware is
+> uploaded to the Arduino. For example, PR parameters are ignored if the Arduino is
+> running `fr.ino`. Always ensure the firmware matches the paradigm you intend to run.
+
+> **Warning:**
 > **Timeout set to 0:** The animal can earn rewards as fast as it can press — this is
 > usually not desired.
-
-> ⚠️ **Warning:**
-> **Trace interval too long:** The animal may not associate the cue with the reward if
-> the gap is too large.
 
 ### 5.3 Program Tab — Session Limits & File Configuration
 
@@ -516,9 +680,11 @@ You can set the experiment to stop automatically based on time, infusion count, 
 
 #### File Configuration
 
-- **Filename:** Enter a name for your data file (e.g., `experiment1`)
-- **Save folder:** Choose where to save the data
-- **Default save location:** `~/REACHER/DATA/`
+- **Filename:** Enter a name for your data files (e.g., `experiment1`)
+- **Save folder:** Choose where the user-initiated **Export ZIP** archive will land
+  - Recommended (placeholder shown in the field): `~/REACHER/DATA/`
+  - If the field is left blank: `~/Downloads/`
+- **Backend logs** are written automatically to `~/REACHER/LOG/{timestamp}/` every session — separate from the user-initiated ZIP export. See [Section 9](#data-export) for the distinction.
 
 <details>
 <summary><strong>Program Tab Troubleshooting</strong></summary>
@@ -574,7 +740,7 @@ The dashboard shows a timeline plot that updates every **5 seconds**.
 |---------|-------------|-----|
 | Graph shows no data | No behavioral events have occurred yet | Wait for the animal to press the lever |
 | Graph shows no data (events ARE happening) | Dashboard update stalled | Refresh the browser page; check that the experiment is not paused |
-| Graph stopped updating mid-session | Serial connection lost | Check the USB cable; the Arduino may have reset (see [Section 6.5](#65-unexpected-stops--recovery)) |
+| Graph stopped updating mid-session | Serial connection lost or WebSocket disconnected | Check the USB cable; the WebSocket will auto-reconnect if the backend is still running |
 | Lever presses show as TIMEOUT when they shouldn't | Timeout period is still active from the previous reward | Wait for the timeout to expire (default 20 seconds); adjust timeout in the Schedule Tab if needed |
 | All presses show as INACTIVE | Wrong lever set as active | Go to the Hardware Tab and check which lever is set as the "active" lever |
 
@@ -594,25 +760,43 @@ The dashboard shows a timeline plot that updates every **5 seconds**.
 1. Click the **Stop** button in the Monitor Tab
 2. This sends an END command to the Arduino, closes the serial connection, and
    finalizes the data
-3. **Always stop the experiment before disconnecting the USB cable**
+3. **Data is auto-exported** to `~/REACHER/LOG/{TIMESTAMP}/` containing:
+   - `behavior_events.csv` — all behavioral event data
+   - `frame_timestamps.csv` — imaging frame timestamps (if microscope was armed)
+   - `controller_log.json` — raw JSON messages from the Arduino
+   - `interface_log.log` — application debug log
+   - `event_log.jsonl` — structured event log (one JSON object per line)
+4. **Always stop the experiment before disconnecting the USB cable**
 
-> 🔴 **Caution:**
+> **Caution:**
 > **If USB is pulled without stopping:** Data collected up to that point is
 > preserved in the log files (`~/REACHER/LOG/`), but the session metadata may be
-> incomplete and the export file may not be generated automatically.
+> incomplete and the auto-export may not complete properly.
+
+### 6.5 Session Recovery
+
+**Single-tab enforcement:** The dashboard enforces a single active tab per session.
+If you open the same session URL in a second tab, it will warn you.
+
+**Page reload recovery:** If you refresh the browser page during a running experiment,
+the dashboard reconnects to the backend via WebSocket and restores the session state.
+The backend continues running independently of the browser.
+
+**Tab close behavior:** Closing the browser tab sends a shutdown signal to the backend.
+If an experiment is running, the backend will auto-export data before shutting down.
 
 <a id="65-unexpected-stops--recovery"></a>
 
-### 6.5 Unexpected Stops & Recovery
+### 6.6 Unexpected Stops & Recovery
 
 If your experiment stops unexpectedly, follow this decision tree:
 
 ```
 Experiment stopped unexpectedly
 |
-+-- Did the application crash?
++-- Did the backend crash?
 |   |
-|   +-- YES --> Restart The Labrynth
+|   +-- YES --> Restart REACHER
 |   |           Your data is saved in ~/REACHER/LOG/
 |   |           Look for the most recent timestamped folder
 |   |
@@ -620,8 +804,9 @@ Experiment stopped unexpectedly
 |       |
 |       +-- Did the Arduino reset? (power LED blinks off then on)
 |       |   |
-|       |   +-- YES --> USB cable issue
+|       |   +-- YES --> USB cable issue or watchdog timer reset
 |       |   |           Try a different cable
+|       |   |           If watchdog: check for firmware loop stalls
 |       |   |           Reconnect and restart the session
 |       |   |
 |       |   +-- NO
@@ -643,15 +828,75 @@ Experiment stopped unexpectedly
 
 <!-- ============================================================ -->
 
+<a id="cli-usage"></a>
+<details>
+<summary><h2>7. CLI Usage</h2></summary>
+
+The REACHER CLI provides a terminal-based interface for full experiment control
+without a browser. It uses `prompt_toolkit` for interactive menus and is installed
+as the `reacher-cli` command.
+
+### 7.1 Starting the CLI
+
+```bash
+reacher-cli
+```
+
+The CLI auto-detects whether the REACHER backend is running. If not, it starts
+the backend automatically before presenting the main menu.
+
+### 7.2 CLI Modes
+
+| Mode | Description |
+|------|-------------|
+| **Menu** | Navigate options using arrow keys and Enter |
+| **Input** | Type values (session names, file paths, parameters) |
+| **Select** | Choose from lists (ports, paradigms, boards) |
+| **Monitor** | Live session monitoring — displays events as they arrive |
+
+### 7.3 Available Commands
+
+From the main menu, you can:
+
+- **Create a session** — specify a name and create a new wired session
+- **Upload firmware** — select port, paradigm, and board for firmware upload
+- **Connect to Arduino** — select a port and connect
+- **Configure hardware** — arm/disarm devices
+- **Set schedule parameters** — configure timing and ratio settings
+- **Start / Pause / Stop** — control the experiment
+- **Export data** — trigger a ZIP export of session data
+- **View session status** — see current state, events, and counters
+
+### 7.4 CLI Troubleshooting
+
+<details>
+<summary><strong>CLI Issues</strong></summary>
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| `reacher-cli: command not found` | CLI not installed | Install with `pip install -e ".[cli]"` from the labrynth directory |
+| CLI starts but can't detect backend | Backend is not running and auto-start failed | Start the backend manually: `python -m reacher` |
+| CLI is unresponsive or garbled display | Terminal doesn't support prompt_toolkit features | Try a different terminal emulator (e.g., Windows Terminal, iTerm2, GNOME Terminal) |
+| "Connection refused" when connecting | Backend crashed or port 6229 is unavailable | Restart the backend: `python -m reacher` |
+| Serial port not listed | Port permissions (Linux) or missing driver | See [Section 4.2](#42-finding-the-com-port) for driver installation; on Linux, add your user to the `dialout` group |
+
+</details>
+
+<p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
+
+</details>
+
+<!-- ============================================================ -->
+
 <a id="hardware-testing"></a>
 <details>
-<summary><h2>7. Hardware Testing & Diagnostics</h2></summary>
+<summary><h2>8. Hardware Testing & Diagnostics</h2></summary>
 
 Use these procedures to test each hardware component independently. This helps
 isolate whether a problem is with the wiring, the component, or the software.
 
 <details>
-<summary><h3>7.1 Lever Switch Testing</h3></summary>
+<summary><h3>8.1 Lever Switch Testing</h3></summary>
 
 **Physical test:**
 1. Use a multimeter set to continuity mode
@@ -668,7 +913,7 @@ isolate whether a problem is with the wiring, the component, or the software.
 **Expected output format:**
 ```
 Device: SWITCH_LEVER | Event: PRESS | Class: ACTIVE/TIMEOUT/INACTIVE
-Pin: 10 (RH) or 13 (LH)
+Pin: 10 (RH) or 12 (LH)
 Orientation: RH or LH
 ```
 
@@ -682,20 +927,25 @@ false readings from switch bounce.
 
 </details>
 
-<a id="72-cue-speaker-testing"></a>
+<a id="82-cue-speaker-testing"></a>
 <details>
-<summary><h3>7.2 Cue Speaker Testing</h3></summary>
+<summary><h3>8.2 Cue Speaker Testing</h3></summary>
 
 **Physical test:**
 1. Briefly touch the speaker wires to the Arduino's 3.3V and GND pins
 2. You should hear a faint click or pop — this confirms the speaker works
 
-**Software test:**
+**Software test (primary cue — pin 3):**
 1. Connect to the Arduino — the **connection jingle** should play automatically
    (three ascending tones: 500 Hz → 1000 Hz → 1500 Hz, each 100ms long)
-2. Arm the cue in the Hardware Tab
+2. Arm the primary cue in the Hardware Tab
 3. Trigger a reward (press the active lever enough times to meet the ratio)
 4. Listen for the cue tone
+
+**Software test (secondary cue — pin 7):**
+1. Arm the secondary cue in the Hardware Tab
+2. Use the test button for the secondary cue
+3. Listen for the tone from the second speaker
 
 **Default tone settings:**
 - Frequency: 8000 Hz
@@ -703,7 +953,7 @@ false readings from switch bounce.
 - Trace interval: 0 ms
 
 **No sound troubleshooting:**
-1. Verify speaker is wired to **pin 3** and **GND**
+1. Verify speaker is wired to **pin 3** (primary) or **pin 7** (secondary) and **GND**
 2. Check speaker impedance — 8Ω is typical
 3. Try a different speaker
 4. If the connection jingle doesn't play, the issue is wiring or the speaker itself
@@ -711,12 +961,16 @@ false readings from switch bounce.
 </details>
 
 <details>
-<summary><h3>7.3 Pump Testing</h3></summary>
+<summary><h3>8.3 Pump Testing</h3></summary>
 
-**Software test:**
+**Software test (primary pump — pin 4):**
 1. Connect to the Arduino
-2. Arm the pump in the Hardware Tab
+2. Arm the primary pump in the Hardware Tab
 3. Use the test button in the Hardware Tab to run the pump
+
+**Software test (secondary pump — pin 8):**
+1. Arm the secondary pump in the Hardware Tab
+2. Use the test button for the secondary pump
 
 **What to verify:**
 - Pump motor runs when activated
@@ -724,7 +978,7 @@ false readings from switch bounce.
 - Default infusion duration: 2000 ms (2 seconds)
 
 **No delivery troubleshooting:**
-1. Check pump is wired to **pin 4** and **GND**
+1. Check pump is wired to **pin 4** (primary) or **pin 8** (secondary) and **GND**
 2. Verify tubing connections at both ends
 3. Check pump power supply (some pumps need external power)
 4. Verify pump runs during the test — if the motor spins but no fluid, the tubing
@@ -733,9 +987,9 @@ false readings from switch bounce.
 </details>
 
 <details>
-<summary><h3>7.4 Laser Testing</h3></summary>
+<summary><h3>8.4 Laser Testing</h3></summary>
 
-> 🔴 **Caution:**
+> **Caution:**
 > **SAFETY: ALWAYS wear appropriate laser safety eyewear when testing the laser.**
 
 **Software test:**
@@ -762,7 +1016,7 @@ false readings from switch bounce.
 </details>
 
 <details>
-<summary><h3>7.5 Lick Circuit Testing</h3></summary>
+<summary><h3>8.5 Lick Circuit Testing</h3></summary>
 
 **Software test:**
 1. Connect to the Arduino
@@ -783,9 +1037,9 @@ false readings from switch bounce.
 
 </details>
 
-<a id="76-imaging-trigger"></a>
+<a id="86-imaging-trigger--frame-timestamps"></a>
 <details>
-<summary><h3>7.6 Imaging Trigger / Frame Timestamps</h3></summary>
+<summary><h3>8.6 Imaging Trigger / Frame Timestamps</h3></summary>
 
 **Software test:**
 1. Connect to the Arduino
@@ -815,55 +1069,11 @@ false readings from switch bounce.
 
 <a id="data-export"></a>
 <details>
-<summary><h2>8. Data Export & Validation</h2></summary>
+<summary><h2>9. Data Export & Validation</h2></summary>
 
-### 8.1 Exporting Data
+### 9.1 Auto-Export on Stop
 
-1. Go to the **Monitor Tab**
-2. Click the **Export** button
-3. An Excel file (`.xlsx`) is saved to the location you specified in the Program Tab
-   (default: `~/REACHER/DATA/`)
-
-**Excel file sheets:**
-
-| Sheet Name | What It Contains |
-|------------|-----------------|
-| **Session Summary** | Start time, end time, behavior chamber name, frame count, event counts |
-| **Behavior Data** | Columns: device, event, start_timestamp, end_timestamp |
-| **Firmware Information** | Sketch name, version, baud rate, schedule type |
-| **Hardware Settings** | All hardware configuration details |
-| **Frame Timestamps** | List of imaging frame timestamps (if microscope was armed) |
-
-### 8.2 Verifying Exported Data
-
-After exporting, open the file in Excel, LibreOffice Calc, or similar:
-
-1. **Check row counts:** The number of rows in "Behavior Data" should match the
-   number of events you observed during the session
-2. **Verify timestamps are sequential:** Each start_timestamp should be greater than
-   the previous one
-3. **Cross-reference infusion count:** The number of "INFUSION" events should match
-   what you expected
-4. **Check the Session Summary:** Event counts are broken down by type (e.g.,
-   "PUMP INFUSION", "RH_LEVER ACTIVE_PRESS")
-
-<details>
-<summary><strong>Data Troubleshooting</strong></summary>
-
-| Symptom | Likely Cause | Fix |
-|---------|-------------|-----|
-| Export button does nothing | No data has been collected | Run an experiment first — there must be at least one event |
-| Export fails with an error | `openpyxl` not installed or permission denied on save folder | Install openpyxl: `pip install openpyxl`; choose a writable directory |
-| Excel file opens but sheets are empty | Experiment stopped before any events occurred | Verify that events actually happened during the session |
-| Timestamps are very large numbers | This is normal — timestamps are in **milliseconds** from program start, not wall-clock time | Divide by 1000 to get seconds, or by 60000 for minutes |
-| Missing behavioral events | Events may have occurred during a pause or before the program started | Check pause/resume times in the Session Summary sheet |
-| Frame Timestamps sheet is empty | Imaging trigger not armed or microscope not sending frames | Verify microscope is armed and frame signal wiring is correct (Section 7.6) |
-
-</details>
-
-### 8.3 Finding Raw Logs
-
-If export fails or you need to recover data, raw logs are stored at:
+When you stop an experiment, data is **automatically exported** to:
 
 ```
 ~/REACHER/LOG/<YYYY-MM-DD_HH-MM-SS>/
@@ -873,11 +1083,70 @@ Each session folder contains:
 
 | File | What It Contains |
 |------|-----------------|
+| `behavior_events.csv` | Columns: device, event, class, orientation, start_timestamp, end_timestamp |
+| `frame_timestamps.csv` | List of imaging frame timestamps (if microscope was armed) |
 | `controller_log.json` | Raw JSON messages received from the Arduino |
-| `interface_log.log` | Python application debug log |
+| `interface_log.log` | Application debug log |
+| `event_log.jsonl` | Structured event log (one JSON object per line) |
+
+### 9.2 ZIP Export
+
+You can also export a ZIP archive containing all session data. **This is a separate, user-initiated step from the auto-export of backend logs in Section 9.1.**
+
+1. Go to the **Data Tab**
+2. Click the **Export ZIP** button
+3. The ZIP file is saved to the location specified in the Program Tab:
+   - Recommended (placeholder shown in the export field): `~/REACHER/DATA/`
+   - If the destination field is left blank: `~/Downloads/`
+
+**ZIP archive contents:**
+
+| File | What It Contains |
+|------|-----------------|
+| `behavior_events.csv` | All behavioral event data |
+| `frame_timestamps.csv` | Imaging frame timestamps |
+| `metadata.json` | Session summary: start time, end time, chamber name, event counts |
+| `arduino_config.json` | Hardware and schedule configuration as sent to the Arduino |
+| `notes.txt` | Session notes (if any were entered in the Data Tab) |
+
+### 9.3 Verifying Exported Data
+
+After exporting, open the CSV files in any spreadsheet application or data analysis tool:
+
+1. **Check row counts:** The number of rows in `behavior_events.csv` should match the
+   number of events you observed during the session
+2. **Verify timestamps are sequential:** Each start_timestamp should be greater than
+   the previous one
+3. **Cross-reference infusion count:** The number of rows with event "INFUSION" should
+   match what you expected
+4. **Check metadata:** Open `metadata.json` in the ZIP to see event counts broken down
+   by type
+
+<details>
+<summary><strong>Data Troubleshooting</strong></summary>
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| Auto-export didn't run | Session was interrupted (USB pulled, backend crash) | Check `~/REACHER/LOG/` for the most recent folder — raw logs are still saved |
+| Export ZIP button does nothing | No data has been collected | Run an experiment first — there must be at least one event |
+| CSV files are empty | Experiment stopped before any events occurred | Verify that events actually happened during the session |
+| Timestamps are very large numbers | This is normal — timestamps are in **milliseconds** from program start, not wall-clock time | Divide by 1000 to get seconds, or by 60000 for minutes |
+| Missing behavioral events | Events may have occurred during a pause or before the program started | Check the metadata file for pause/resume times |
+| Frame timestamps file is empty | Imaging trigger not armed or microscope not sending frames | Verify microscope is armed and frame signal wiring is correct ([Section 8.6](#86-imaging-trigger--frame-timestamps)) |
+| Permission denied on export | Write permission issue on save folder | Choose a writable directory (e.g., Desktop, Documents, or `~/REACHER/DATA/`) |
+
+</details>
+
+### 9.4 Finding Raw Logs
+
+If auto-export fails or you need to recover data, raw logs are always stored at:
+
+```
+~/REACHER/LOG/<YYYY-MM-DD_HH-MM-SS>/
+```
 
 **When to use raw logs:**
-- Export failed or produced incomplete data
+- Auto-export failed or produced incomplete data
 - You need to investigate a specific event or error
 - You need to recover data from a crashed session
 
@@ -892,10 +1161,10 @@ it was received. Each line is a JSON object you can parse with any JSON-compatib
 
 <a id="platform-issues"></a>
 <details>
-<summary><h2>9. Platform-Specific Issues</h2></summary>
+<summary><h2>10. Platform-Specific Issues</h2></summary>
 
 <details>
-<summary><h3>9.1 Windows</h3></summary>
+<summary><h3>10.1 Windows</h3></summary>
 
 **COM Port Numbering:**
 - Windows assigns COM port numbers (COM3, COM4, etc.) to USB devices
@@ -912,15 +1181,15 @@ it was received. Each line is a JSON object you can parse with any JSON-compatib
 - You can add an exception in Windows Defender settings:
   Settings → Update & Security → Windows Security → Virus & threat protection →
   Manage settings → Exclusions → Add exclusion → Folder →
-  `C:\Program Files\The Labrynth\`
+  `C:\Program Files\REACHER\`
 
 </details>
 
 <details>
-<summary><h3>9.2 macOS</h3></summary>
+<summary><h3>10.2 macOS</h3></summary>
 
 **Gatekeeper ("App from unidentified developer"):**
-- First time only: Right-click (Control-click) the app → select **Open**
+- First time only: Right-click (Control-click) REACHER.app → select **Open**
 - Click **Open** in the confirmation dialog
 - Alternative: System Preferences → Security & Privacy → General → click
   **Open Anyway** next to the blocked app message
@@ -931,13 +1200,12 @@ it was received. Each line is a JSON object you can parse with any JSON-compatib
 
 **macOS Sonoma+ USB Permissions:**
 - Recent macOS versions may prompt for USB accessory permissions
-- Click **Allow** when prompted to let The Labrynth communicate with the Arduino
+- Click **Allow** when prompted to let REACHER communicate with the Arduino
 
 </details>
 
-<a id="93-linux"></a>
 <details>
-<summary><h3>9.3 Linux</h3></summary>
+<summary><h3>10.3 Linux</h3></summary>
 
 **Serial Port Permissions:**
 The most common Linux issue — your user account needs permission to access serial ports:
@@ -947,19 +1215,6 @@ sudo usermod -a -G dialout $USER
 ```
 
 Then **log out and log back in** (or restart the computer). This only needs to be done once.
-
-**Missing Qt Libraries:**
-If the launcher window doesn't appear, you may need to install Qt dependencies:
-
-```bash
-sudo apt install libxkbcommon0 libxcb-xinerama0
-```
-
-On some distributions, additional packages may be needed:
-
-```bash
-sudo apt install libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1
-```
 
 **Port Naming:**
 - Arduino UNO typically appears as `/dev/ttyACM0`
@@ -977,7 +1232,7 @@ sudo apt install libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1
 
 <a id="flowcharts"></a>
 <details>
-<summary><h2>10. Quick-Reference Troubleshooting Flowcharts</h2></summary>
+<summary><h2>11. Quick-Reference Troubleshooting Flowcharts</h2></summary>
 
 <details>
 <summary><h3>Flowchart 1: "I can't connect to the Arduino"</h3></summary>
@@ -1010,21 +1265,26 @@ I can't connect to the Arduino
 |       |   |
 |       |   +-- NOT SURE --> Try each port in the dropdown
 |       |   |
-|       |   +-- YES --> Is the Arduino IDE Serial Monitor open?
+|       |   +-- YES --> Is the port locked by another session?
 |       |       |
-|       |       +-- YES --> Close it (only one program can use a port at a time)
+|       |       +-- YES --> Disconnect the other session first
+|       |       |           (port locking: one session per port)
 |       |       |
-|       |       +-- NO --> Is the firmware uploaded?
+|       |       +-- NO --> Is the Arduino IDE Serial Monitor open?
 |       |           |
-|       |           +-- NO --> Upload firmware first (Section 3.2)
+|       |           +-- YES --> Close it (only one program can use a port at a time)
 |       |           |
-|       |           +-- YES --> Try unplugging and replugging the Arduino
-|       |                       Restart The Labrynth and try again
+|       |           +-- NO --> Is the firmware uploaded?
+|       |               |
+|       |               +-- NO --> Upload firmware first (Section 3.2)
+|       |               |
+|       |               +-- YES --> Try unplugging and replugging the Arduino
+|       |                           Restart REACHER and try again
 |       |
 |       +-- "Loaded firmware is incompatible"
 |           |
 |           +-- Upload the correct firmware file
-|               Use operant_FR.ino for Fixed-Ratio experiments
+|               Use fr.ino for Fixed-Ratio, pr.ino for Progressive-Ratio, etc.
 |
 +-- LINUX ONLY: "Permission denied" on /dev/ttyUSB0 or /dev/ttyACM0
     |
@@ -1072,11 +1332,14 @@ My experiment isn't working correctly
 |   |
 |   +-- No ACTIVE presses even though ratio should be met
 |       |
-|       +-- Check the Fixed Ratio setting in Schedule Tab
+|       +-- Check the ratio setting in Schedule Tab
 |           FR1 = every press is rewarded
 |           FR5 = every 5th press is rewarded
 |
 +-- Reward cycle isn't working (no tone/pump/laser after active press)
+|   |
+|   +-- Is the correct firmware uploaded for your paradigm?
+|   |   +-- FR requires fr.ino, PR requires pr.ino, etc.
 |   |
 |   +-- Is the cue speaker armed?
 |   |   +-- Check Hardware Tab
@@ -1085,14 +1348,15 @@ My experiment isn't working correctly
 |   |   +-- Check Hardware Tab
 |   |
 |   +-- Is the device physically connected?
-|       +-- See Section 7 for individual device testing
+|       +-- See Section 8 for individual device testing
 |
 +-- Timing seems wrong
     |
     +-- Check Schedule Tab settings:
         - Timeout Duration (default: 20 seconds)
         - Trace Duration (default: 0 seconds)
-        - Fixed Ratio (default: 1)
+        - Ratio value (default: 1)
+        - Verify paradigm-specific parameters match your firmware
 ```
 
 </details>
@@ -1103,7 +1367,21 @@ My experiment isn't working correctly
 ```
 I can't export or find my data
 |
-+-- Export button doesn't work
++-- Auto-export didn't run on stop
+|   |
+|   +-- Was the session stopped cleanly (Stop button)?
+|   |   |
+|   |   +-- NO --> Check ~/REACHER/LOG/ for raw logs
+|   |   |         Data is still recoverable from controller_log.json
+|   |   |
+|   |   +-- YES --> Check ~/REACHER/LOG/ for the timestamped folder
+|   |               Auto-export creates behavior_events.csv and
+|   |               frame_timestamps.csv automatically
+|   |
+|   +-- Did the backend crash during export?
+|       --> Restart REACHER, raw logs are preserved
+|
++-- Export ZIP button doesn't work
 |   |
 |   +-- Was any data collected?
 |   |   |
@@ -1112,26 +1390,24 @@ I can't export or find my data
 |   |   +-- YES --> Do you have write permission to the save folder?
 |   |       |
 |   |       +-- Try saving to ~/REACHER/DATA/ or your Desktop
-|   |       |
-|   |       +-- Is openpyxl installed?
-|   |           pip install openpyxl
 |   |
-+-- Can't find the exported file
++-- Can't find the exported files
 |   |
-|   +-- Check the save location you set in the Program Tab
+|   +-- Check the save location in the Program Tab
 |   |   Default: ~/REACHER/DATA/
 |   |
-|   +-- Search your computer for .xlsx files created today
+|   +-- Search your computer for .csv or .zip files created today
 |   |
-|   +-- Check ~/REACHER/DATA/ for timestamped folders
+|   +-- Check ~/REACHER/LOG/ for timestamped folders
 |
 +-- Need to recover data from a crash
 |   |
 |   +-- Raw logs are stored at:
 |       ~/REACHER/LOG/<YYYY-MM-DD_HH-MM-SS>/
 |       |
-|       +-- controller_log.json --> Raw Arduino messages (JSON)
-|       +-- interface_log.log  --> Application debug log
+|       +-- controller_log.json  --> Raw Arduino messages (JSON)
+|       +-- interface_log.log    --> Application debug log
+|       +-- event_log.jsonl      --> Structured event log
 |
 +-- Data format questions
     |
@@ -1140,12 +1416,74 @@ I can't export or find my data
     |       Divide by 1000 for seconds
     |       Divide by 60000 for minutes
     |
-    +-- What do the Excel sheets contain?
-    |   --> See Section 8.1 for sheet descriptions
+    +-- What do the CSV columns contain?
+    |   --> See Section 9.1 for column descriptions
     |
-    +-- Frame Timestamps sheet is empty?
+    +-- What's in the ZIP archive?
+    |   --> See Section 9.2 for ZIP contents
+    |
+    +-- Frame timestamps file is empty?
         --> Microscope was not armed, or no frame signals were received
-            See Section 7.6
+            See Section 8.6
+```
+
+</details>
+
+<details>
+<summary><h3>Flowchart 4: "The CLI isn't working"</h3></summary>
+
+```
+The CLI isn't working
+|
++-- "reacher-cli: command not found"
+|   |
+|   +-- Is the CLI installed?
+|       |
+|       +-- NO --> Install it:
+|       |         cd labrynth
+|       |         pip install -e ".[cli]"
+|       |
+|       +-- YES --> Is the virtual environment activated?
+|           |
+|           +-- NO --> Activate it:
+|           |         source venv/bin/activate  (Linux/macOS)
+|           |         .\venv\Scripts\Activate.ps1  (Windows)
+|           |
+|           +-- YES --> Check that the install path is in your PATH
+|
++-- CLI starts but can't connect to backend
+|   |
+|   +-- Is the backend running?
+|       |
+|       +-- The CLI should auto-start the backend
+|       |   If auto-start fails:
+|       |
+|       +-- Start manually: python -m reacher
+|       |
+|       +-- Check that port 6229 is not blocked or in use
+|
++-- Display is garbled or unresponsive
+|   |
+|   +-- Your terminal may not support prompt_toolkit
+|       |
+|       +-- Try a different terminal:
+|           Windows: Windows Terminal (recommended)
+|           macOS: iTerm2 or Terminal.app
+|           Linux: GNOME Terminal, Konsole, or xterm
+|
++-- Serial ports not listed in CLI
+|   |
+|   +-- Same causes as browser dashboard
+|       See Flowchart 1 above
+|       |
+|       +-- Linux: check dialout group membership
+|       +-- All platforms: check USB cable and drivers
+|
++-- CLI freezes during firmware upload
+    |
+    +-- Upload may take 15-30 seconds — wait for completion
+    +-- If truly stuck, press Ctrl+C and try again
+    +-- Ensure no other program is using the serial port
 ```
 
 </details>
@@ -1158,27 +1496,37 @@ I can't export or find my data
 
 <a id="glossary"></a>
 <details>
-<summary><h2>11. Glossary</h2></summary>
+<summary><h2>12. Glossary</h2></summary>
 
 | Term | Definition |
 |------|-----------|
 | **Active press** | A lever press on the "active" lever that counts toward earning a reward. If the Fixed Ratio is 1 (FR1), every active press earns a reward. If FR5, every 5th active press earns a reward. |
 | **Arming / Disarming** | Turning a hardware component on (armed) or off (disarmed) in the software. A disarmed device is ignored during the experiment. |
+| **Auto-export** | The automatic saving of session data (CSV files and logs) that occurs when an experiment is stopped. Data is written to `~/REACHER/LOG/{TIMESTAMP}/`. |
 | **Baud rate** | The speed of communication between the Arduino and your computer. REACHER uses 115200 baud. You do not need to set this — it is configured automatically. |
+| **CLI** | Command-Line Interface. The terminal-based alternative to the browser dashboard for controlling experiments. Uses `prompt_toolkit` for interactive menus. Installed as the `reacher-cli` command. |
 | **COM port** | The name your computer gives to the USB connection with the Arduino. On Windows it looks like "COM3", on macOS like "/dev/cu.usbserial-1420", and on Linux like "/dev/ttyUSB0". |
 | **Cue / Conditioned Stimulus** | A sound (tone) played through the speaker to signal that a reward is coming. The animal learns to associate this sound with the reward. |
 | **Debounce** | A short delay (20 ms) built into the firmware that prevents a single lever press or lick from being counted multiple times due to mechanical vibration of the switch. |
+| **Demo mode** | A mode in the dashboard that uses simulated data to demonstrate the interface without requiring connected hardware. Useful for training and familiarization. |
 | **Fixed Ratio (FR)** | A schedule where the animal must press the lever a fixed number of times to earn a reward. FR1 = 1 press per reward, FR5 = 5 presses per reward. |
-| **Progressive Ratio (PR)** | A schedule where the number of presses required for each successive reward increases. (Beta — not covered in this guide.) |
-| **Variable Interval (VI)** | A schedule where rewards become available after a variable amount of time. (Beta — not covered in this guide.) |
-| **Omission** | A schedule where the animal must withhold responding to earn a reward. (Beta — not covered in this guide.) |
+| **Inactive press** | A lever press on the "inactive" lever (the one NOT set as the active lever). These presses are recorded but never earn rewards, regardless of timing. |
 | **Infusion** | A single delivery of fluid through the pump. The pump runs for a set duration (default: 2000 ms / 2 seconds) to push fluid through the tubing. |
 | **ISR (Interrupt Service Routine)** | A special function in the Arduino firmware that runs immediately when a specific event happens (like a frame signal arriving on pin 2). Used for precise timing of imaging frame timestamps. |
-| **Paradigm** | The set of rules governing how the experiment runs. Different paradigms (FR, PR, VI, Omission) define different relationships between the animal's behavior and the outcomes. |
-| **Trace interval** | A gap in time between two events — for example, between the cue tone ending and the pump starting. A trace interval of 0 means the pump starts immediately after the cue would finish. |
+| **Omission** | A schedule where the animal must withhold responding for a configured duration to earn a reward. If the animal presses during the omission window, the timer resets. |
+| **Paradigm** | The set of rules governing how the experiment runs. Different paradigms (FR, PR, VI, Omission, Pavlovian) define different relationships between the animal's behavior and the outcomes. |
+| **Pavlovian** | A schedule where rewards are delivered based on trial structure (CS+/CS- trials) rather than the animal's lever pressing. Uses a `PavlovianScheduler` with configurable inter-trial intervals. |
+| **Port locking** | The mechanism that prevents two REACHER sessions from using the same serial port simultaneously. Each Arduino port can only be claimed by one active session. |
+| **Progressive Ratio (PR)** | A schedule where the number of presses required for each successive reward increases. The session ends when the animal fails to complete the current ratio within the breakpoint time. |
+| **Scheduler engine** | The firmware component (`Scheduler` class) that implements the trigger → chain → action pattern for all operant paradigms (FR, PR, VI, Omission). Pavlovian uses a separate `PavlovianScheduler`. |
+| **Secondary cue** | A second tone speaker connected to pin 7, used in Pavlovian (CS- tones) and other advanced paradigm configurations. |
+| **Secondary pump** | A second infusion pump connected to pin 8, used in paradigms that require dual-reward delivery. |
+| **Session ID** | A unique identifier assigned to each REACHER session. Used internally by the backend to track and route commands to the correct session. |
 | **Timeout period** | A cooldown period after a reward during which lever presses are counted but do not earn rewards. These presses are classified as "timeout presses." Default: 20 seconds. |
-| **Inactive press** | A lever press on the "inactive" lever (the one NOT set as the active lever). These presses are recorded but never earn rewards, regardless of timing. |
 | **Timeout press** | A lever press on the active lever that occurs during the timeout period (after a reward). The press is recorded but does not count toward the next reward. |
+| **Trace interval** | A gap in time between two events — for example, between the cue tone ending and the pump starting. A trace interval of 0 means the pump starts immediately after the cue would finish. |
+| **Variable Interval (VI)** | A schedule where rewards become available after a variable amount of time. The animal must press during the availability window to earn the reward. |
+| **Watchdog timer** | A hardware safety timer (8-second timeout) in the Arduino firmware. If the main loop stalls for longer than 8 seconds, the watchdog automatically resets the Arduino to prevent hardware damage. |
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -1186,5 +1534,7 @@ I can't export or find my data
 
 <!-- ============================================================ -->
 
-*This guide covers REACHER firmware v1.1.1 (Fixed-Ratio paradigm, wired sessions only).*
-*For issues not covered here, check the [GitHub repository](https://github.com/Otis-Lab-MUSC/Labrynth) or file an issue.*
+*This guide covers REACHER-Suite v2.0.0 (all paradigms: FR, PR, VI, Omission, Pavlovian — wired sessions).*
+*For issues not covered here, check the [GitHub repository](https://github.com/Otis-Lab-MUSC/labrynth) or file an issue.*
+
+*Last updated: April 2026.*

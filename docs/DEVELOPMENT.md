@@ -18,7 +18,8 @@ This guide explains how the REACHER system works and how to modify it. It is wri
 10. [Building and Packaging](#10-building-and-packaging)
 11. [Version Management](#11-version-management)
 12. [Release Process](#12-release-process)
-13. [Additional Resources](#appendix-additional-resources)
+13. [Downstream Analysis](#13-downstream-analysis)
+14. [Additional Resources](#appendix-additional-resources)
 
 ---
 
@@ -213,7 +214,7 @@ reacher/
 labrynth/
 ├── pyproject.toml                    # Package metadata (depends on reacher>=2.0.0)
 ├── launcher.py                       # PyInstaller entry point — sets REACHER_STATIC_DIR, calls main()
-├── build.py                          # 5-stage build orchestrator (firmware → frontend → PyInstaller)
+├── build.py                          # 6-stage build orchestrator (firmware → frontend → PyInstaller)
 ├── reacher.spec                      # PyInstaller spec (bundles frontend, hex, avrdude)
 ├── cli/
 │   ├── __main__.py                   # CLI entry point (reacher-cli command)
@@ -1095,6 +1096,19 @@ When releasing a new version, update all five locations above. The CI workflow e
 
 ---
 
+## 13. Downstream Analysis
+
+REACHER's session output (the per-session `~/REACHER/LOG/{timestamp}/` folder and the user-initiated ZIP archive) is the input format expected by two analysis packages from the same lab. Both are outside the scope of REACHER itself — the protocol guide stops at session export — but they are the standard downstream path for the data this system produces, so any developer extending REACHER's data schema should keep them in mind.
+
+| Tool | Purpose | Repository |
+|------|---------|-----------|
+| **pynapse** | Neural data engine for aligning calcium-imaging signals (`.npy` fluorescence traces) with REACHER behavioral events and extracting peri-event tensors. Provides the core `Sample`, `Population`, and `Project` abstractions. | https://github.com/Otis-Lab-MUSC/pynapse |
+| **axplorer** | Peri-event analysis dashboard (FastAPI + React) built on Pynapse, with PETH computation, response classification, behavioral summary, and figure export to PNG/SVG/PDF/CSV/HDF5. | In development at the Otis Lab; not yet publicly released. |
+
+**Schema-compatibility note:** The columns in `behavior_events.csv` and the format of `frame_timestamps.csv` are part of REACHER's de facto interface with these downstream tools. Renaming columns or changing units (timestamps are in milliseconds from session start) is a breaking change that must be coordinated with `pynapse`'s ingestion code.
+
+---
+
 ## Appendix: Additional Resources
 
 ### Documentation
@@ -1112,3 +1126,7 @@ When releasing a new version, update all five locations above. The CI workflow e
 
 - **Issue Tracker:** Use the GitHub Issues on the relevant repository.
 - **Contact:** thejoshbq@proton.me
+
+---
+
+*Document version: REACHER-Suite v2.0.0. Last updated: April 2026.*
