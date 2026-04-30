@@ -28,7 +28,7 @@ This guide explains how the REACHER system works and how to modify it. It is wri
 REACHER is a three-layer system for controlling head-fixed rodent operant conditioning experiments:
 
 ```
-┌──────────────────────┐         JSON / Serial          ┌──────────────────────┐       REST + WebSocket       ┌──────────────────────┐
+┌──────────────────────┐         JSON / Serial           ┌──────────────────────┐       REST + WebSocket       ┌──────────────────────┐
 │                      │       (115200 baud, \n)         │                      │     (http://localhost:6229)  │                      │
 │   Arduino + Firmware │ ◄─────────────────────────────► │   reacher backend    │ ◄──────────────────────────► │   labrynth frontend  │
 │   (reacher-firmware) │                                 │   (FastAPI / Python) │                              │   (React 19 / Vite)  │
