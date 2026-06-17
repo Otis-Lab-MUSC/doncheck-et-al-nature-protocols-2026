@@ -17,14 +17,14 @@
 | 1 | [Prerequisites](#prerequisites) | System requirements, critical step note |
 | 2 | [Installing Arduino IDE](#installing-arduino-ide) | Download and library setup |
 | 3 | [Installing REACHER Application](#installing-reacher-application) | Download Labrynth |
-| 4 | [Installing REACHER Arduino Firmware](#installing-firmware) | Flash operant_FR sketch |
-| 5 | [Launching the Application](#launching-application) | Open Labrynth, launcher window |
-| 6 | [Creating a New Session](#creating-session) | Name and create session tab |
-| 7 | [Home Page — Connecting an Arduino](#home-page) | COM search and connect |
-| 8 | [Program Page — Setting Program Parameters](#program-page) | Presets, limits, components, file config |
-| 9 | [Hardware Page — Adjusting Hardware Settings](#hardware-page) | Arm and configure devices |
-| 10 | [Schedule Page — Adjusting Within-Trial Dynamics](#schedule-page) | Timeout, trace, ratio sliders |
-| 11 | [Monitor Page — Running the Session](#monitor-page) | Start, pause, stop, export |
+| 4 | [Installing REACHER Arduino Firmware](#installing-firmware) | Upload the fr firmware from the app |
+| 5 | [Launching the Application](#launching-application) | Open Labrynth, open the dashboard |
+| 6 | [Creating a New Session](#creating-session) | Name and create a session |
+| 7 | [Device Setup — Connecting an Arduino](#home-page) | COM port search and connect |
+| 8 | [Session Configuration — Program Parameters](#program-page) | Presets, limits, components, file config |
+| 9 | [Session Configuration — Hardware Controls](#hardware-page) | Arm and configure devices |
+| 10 | [Session Configuration — Paradigm Settings](#schedule-page) | Timeout, trace, ratio |
+| 11 | [Session — Running the Session](#monitor-page) | Start, pause, stop, export |
 | 12 | [Testing and Troubleshooting](#testing-troubleshooting) | Link to TROUBLESHOOTING.md |
 
 > 💡 **Tip:**
@@ -50,7 +50,7 @@
 | **OS** | Windows 10 (64-bit), macOS, or Linux | Ubuntu/Debian Linux, Windows 11, macOS |
 
 **Additional requirements:**
-- An **Arduino UNO** (or compatible) connected via **USB-A to USB-B cable**
+- An **Arduino Mega 2560** (default; an Arduino UNO is also supported) connected via **USB-A to USB-B cable**
 - A modern **web browser** (Chrome, Firefox, or Edge)
 - The computer must remain **powered on and connected** to the Arduino for the entire session — do not let it sleep
 
@@ -68,6 +68,11 @@
 <a id="installing-arduino-ide"></a>
 <details>
 <summary><h2>2. Installing Arduino IDE</h2></summary>
+
+> 📝 **Note:**
+> The Arduino IDE is **optional**. Labrynth ships pre-compiled firmware and uploads
+> it for you from the **Firmware Upload** card (see [Section 4](#installing-firmware)),
+> so the IDE is only needed if you want to build or modify the firmware from source.
 
 ### 2.1 Download and Install the Arduino IDE
 
@@ -104,16 +109,18 @@ This step corresponds to **Step 3** in the manuscript.
 Download the latest Labrynth installer for your platform from the
 [Labrynth releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases).
 
+Release assets are version-stamped — substitute the current `<version>` (e.g. `3.0.0-beta.6`).
+
 | Platform | Installer | Notes |
 |----------|-----------|-------|
-| **Windows** | `labrynth-1.0-x64.exe` | Requires administrator privileges |
-| **macOS** | `labrynth_x64.dmg` | Right-click → Open on first launch (Gatekeeper bypass) |
-| **Linux** | `labrynth_amd64.deb` | Install with `sudo apt install ./labrynth_amd64.deb` |
+| **Windows** | `labrynth-<version>-windows-x64.exe` | Requires administrator privileges |
+| **macOS** (Apple Silicon) | `labrynth-<version>-macos-arm64.dmg` | Right-click → Open on first launch (Gatekeeper bypass) |
+| **Linux** | `labrynth_<version>_amd64.deb` | Install with `sudo dpkg -i labrynth_<version>_amd64.deb` |
 
 <details>
 <summary><strong>Windows Installation Details</strong></summary>
 
-1. Download `labrynth-1.0-x64.exe`
+1. Download `labrynth-<version>-windows-x64.exe`
 2. Double-click the installer
 3. Click "Yes" when prompted by Windows for administrator privileges
 4. Follow the Inno Setup wizard (accept defaults)
@@ -125,7 +132,7 @@ Download the latest Labrynth installer for your platform from the
 <details>
 <summary><strong>macOS Installation Details</strong></summary>
 
-1. Download `labrynth_x64.dmg`
+1. Download `labrynth-<version>-macos-arm64.dmg`
 2. Double-click the `.dmg` file to mount it
 3. Drag "Labrynth" to your Applications folder
 4. **First launch — Gatekeeper bypass:**
@@ -138,10 +145,10 @@ Download the latest Labrynth installer for your platform from the
 <details>
 <summary><strong>Linux Installation Details</strong></summary>
 
-1. Download `labrynth_amd64.deb`
+1. Download `labrynth_<version>_amd64.deb`
 2. Open a terminal and run:
    ```bash
-   sudo apt install ./labrynth_amd64.deb
+   sudo dpkg -i labrynth_<version>_amd64.deb
    ```
 3. The application installs to `/opt/labrynth/`
 4. If you get errors about missing Qt libraries, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
@@ -164,57 +171,58 @@ Download the latest Labrynth installer for your platform from the
 <details>
 <summary><h2>4. Installing REACHER Arduino Firmware</h2></summary>
 
-### 4.1 Download the Firmware
+### 4.1 Upload Firmware from the App
 
-1. Go to the [reacher-firmware repository](https://github.com/Otis-Lab-MUSC/reacher-firmware)
-2. Download the `operant_FR` folder (this is the Fixed-Ratio paradigm)
+Labrynth ships **pre-compiled firmware** for every paradigm and flashes it for you, so
+you do **not** need the Arduino IDE. You upload firmware from within the app, so first
+launch Labrynth (see [Section 5](#launching-application)) and have your Arduino plugged in.
 
-### 4.2 Open the Sketch
-
-3. In the Arduino IDE, go to **File → Open**
-4. Navigate to the downloaded `operant_FR` folder and open `operant_FR.ino`
-
-### 4.3 Connect and Upload
-
-5. Connect the Arduino UNO to your computer via the USB-A to USB-B cable
-6. In the Arduino IDE, go to **Tools → Board → Arduino AVR Boards → Arduino UNO**
-7. Go to **Tools → Port** and select the COM port for your Arduino
-   - Windows: `COM3`, `COM4`, etc.
-   - macOS: `/dev/cu.usbmodem*` or `/dev/cu.usbserial*`
-   - Linux: `/dev/ttyACM0`, `/dev/ttyUSB0`, etc.
-8. Click the **Upload** button (right arrow icon) or go to **Sketch → Upload**
-9. Wait for the "Done uploading" message, then **close the Arduino IDE**
+1. Connect the Arduino to your computer via the USB-A to USB-B cable
+2. In the **Device Setup** panel, open the **Firmware Upload** card
+3. Select your **board** — `MEGA` for the Arduino Mega 2560 (the default), or `UNO` for an Arduino UNO
+4. Select the **paradigm** to flash:
+   - `fr` — Fixed Ratio (the standard self-administration paradigm)
+   - `pr` — Progressive Ratio
+   - `vi` — Variable Interval
+   - `omission` — Omission
+   - `pavlovian` — Pavlovian
+5. Start the upload and wait for the progress indicator to complete
 
 > ❗ **Important:**
-> You must close the Arduino IDE (or at least close its Serial Monitor) before
-> launching The Labrynth. Only one program can use the serial port at a time.
+> Only one program can use the serial port at a time. Close the Arduino IDE Serial
+> Monitor (or any other serial program) before uploading or connecting in Labrynth.
 
 > 📝 **Note:**
-> The `operant_FR` sketch is the standard Fixed-Ratio paradigm. Other paradigms
-> are also available in the reacher-firmware repository:
-> - `operant_PR-beta` — Progressive Ratio (beta)
-> - `operant_VI-beta` — Variable Interval (beta)
-> - `omission-beta` — Omission (beta)
+> The firmware source lives inside the `reacher` package under `firmware/` (folders
+> `fr`, `pr`, `vi`, `omission`, `pavlovian`); the former standalone
+> [reacher-firmware repository](https://github.com/Otis-Lab-MUSC/reacher-firmware) is
+> archived. To build or modify the firmware from source, open a sketch (e.g.
+> `fr/fr.ino`) in the Arduino IDE — the only external library required is ArduinoJson —
+> but for the standard protocol the in-app upload above is all you need.
 
 <details>
 <summary><strong>Pin Assignment Reference</strong></summary>
 
-The firmware expects hardware to be connected to these specific Arduino UNO pins:
+The firmware expects hardware to be connected to these default Arduino pins:
 
 | Pin | Device | Direction | Description |
 |-----|--------|-----------|-------------|
-| 2 | Microscope Timestamp | INPUT (Interrupt) | Receives frame sync signals from imaging system |
-| 3 | Cue Speaker | OUTPUT | Plays tones through a connected speaker |
-| 4 | Pump | OUTPUT | Activates the infusion pump |
+| 2 | Microscope Timestamp | INPUT (INT0, fixed) | Receives frame sync signals from imaging system |
+| 3 | Cue 1 Speaker | OUTPUT | Plays tones through a connected speaker |
+| 4 | Pump 1 | OUTPUT | Activates the infusion pump |
 | 5 | Lick Circuit | INPUT_PULLUP | Detects lick contact on the spout |
 | 6 | Laser | OUTPUT | Controls optogenetic laser stimulation |
+| 7 | Cue 2 Speaker | OUTPUT | Secondary cue speaker |
+| 8 | Pump 2 | OUTPUT | Secondary infusion pump |
 | 9 | Microscope Trigger | OUTPUT | Sends trigger pulses to imaging system |
 | 10 | Right-Hand (RH) Lever | INPUT_PULLUP | Detects right lever presses |
+| 11 | SLM Timestamp | INPUT (PCINT) | Spatial light modulator frame sync |
 | 13 | Left-Hand (LH) Lever | INPUT_PULLUP | Detects left lever presses |
 
 > 📝 **Note:**
 > Each hardware component also needs a ground (GND) connection. Some components
-> (like the laser) may also require an external power supply.
+> (like the laser) may also require an external power supply. All pins are
+> runtime-remappable **except pin 2** (the microscope timestamp, fixed on INT0).
 
 </details>
 
@@ -230,20 +238,18 @@ The firmware expects hardware to be connected to these specific Arduino UNO pins
 
 1. Launch **The Labrynth** from your desktop shortcut, Start menu, or Applications folder
 2. Two things happen simultaneously:
-   - A small **launcher window** appears titled "The Labrynth Launcher"
-   - Your default web browser opens automatically to `http://localhost:7007`
+   - A **system-tray icon** appears (the application keeps running in the background)
+   - Your default web browser opens automatically to `http://localhost:6229`
 
-The launcher window will display "Opening session in browser..." and then update to
-"Session running in browser. (keep this window open)".
+The REACHER backend (a local FastAPI server) starts and serves the dashboard to your browser.
 
 > ❗ **Important:**
-> The launcher window **must remain open** for the entire session. Closing it
-> shuts down the Panel server that powers the dashboard. Do not minimize it to
-> the system tray — just leave it in the background.
+> Leave the application running (its tray icon present) for the entire session.
+> Quitting it from the tray shuts down the backend server that powers the dashboard.
 
 > 📝 **Note:**
 > If the browser does not open automatically, manually navigate to
-> `http://localhost:7007` in any modern browser.
+> `http://localhost:6229` in any modern browser.
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -255,22 +261,18 @@ The launcher window will display "Opening session in browser..." and then update
 <details>
 <summary><h2>6. Creating a New Session</h2></summary>
 
-Once the dashboard loads in your browser, you will see the **Welcome** tab with the
-session creation area.
+Once the dashboard loads in your browser, you start on the **Device Setup** panel,
+which contains the session-creation area.
 
-1. Under **"Create a session"**, type a name for your session in the text input
-   (placeholder text: `"Enter a box name"`)
-   - Use a descriptive name (e.g., `Box1`, `Mouse_001_Session_3`)
-2. Click **"New wired session"**
-
-A new tab labeled **"LOCAL - \<your name\>"** appears in the dashboard. Click it to
-open your session.
+1. Type a name for your session in the text input
+   (placeholder text: `"What would you like to name this session? (e.g., BOX_1)"`)
+   - Use a descriptive name (e.g., `BOX_1`, `Mouse_001_Session_3`)
+2. Create the session to open it
 
 > 📝 **Note:**
-> The Labrynth supports multiple simultaneous sessions. Repeat these steps to
-> create additional tabs, each connected to a different Arduino on a different
-> COM port. A **"New wireless session (BETA)"** button is also available for
-> network-based setups but is outside the scope of this protocol.
+> Labrynth can also connect to additional REACHER machines on your network via
+> the **Add Machine** control in Device Setup (using a pairing code), but
+> network-based multi-machine setups are outside the scope of this protocol.
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -280,31 +282,30 @@ open your session.
 
 <a id="home-page"></a>
 <details>
-<summary><h2>7. Home Page — Connecting an Arduino</h2></summary>
+<summary><h2>7. Device Setup — Connecting an Arduino</h2></summary>
 
-When you open your session tab, you start on the **Home** page. The left sidebar
-shows five page tabs: Home, Program, Hardware, Schedule, and Monitor.
+When you open your session, you are on the **Device Setup** panel. The left sidebar
+shows three panels: **Device Setup**, **Session Configuration**, and **Session**.
 
-### 7.1 Search for Microcontrollers
+### 7.1 Select the COM Port
 
-1. Under the **"COM Connection"** section, click the **"Search Microcontrollers"** button
+1. In the **"COM Port"** section, open the port dropdown (placeholder **"Select port..."**)
    - The application scans for all available serial ports
-   - Any connected Arduino devices appear in the **"Microcontroller"** dropdown
+   - Any connected Arduino devices appear in the dropdown, with the detected board
 
 ### 7.2 Connect
 
 2. Select the correct COM port from the dropdown
-3. Click **"Connect"**
+3. Connect to the device
    - The application establishes a serial connection at **115200 baud**
-   - On successful connection, the **Firmware Information** section populates with
-     the loaded sketch's name, version, and schedule type
+   - On successful connection, the panel populates the loaded firmware's
+     **Board**, **Paradigm**, sketch name, and version
 
 > 📝 **Note:**
 > The firmware running on the Arduino must match the paradigm you intend to use.
-> If the **"File"**, **"Version"**, or **"Schedule"** fields show unexpected values
-> after connecting, verify that the correct firmware was uploaded (see
-> [Section 4](#installing-firmware)). A **"Disconnect"** button is available to
-> release the serial port.
+> If the **Board**, **Paradigm**, or version fields show unexpected values
+> after connecting, re-upload the correct firmware from the **Firmware Upload**
+> card (see [Section 4](#installing-firmware)).
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -314,25 +315,26 @@ shows five page tabs: Home, Program, Hardware, Schedule, and Monitor.
 
 <a id="program-page"></a>
 <details>
-<summary><h2>8. Program Page — Setting Program Parameters</h2></summary>
+<summary><h2>8. Session Configuration — Program Parameters</h2></summary>
 
-Navigate to the **Program** page using the sidebar. This page controls session
+Open the **Session Configuration** panel from the sidebar. This panel controls session
 presets, active hardware components, session limits, and file output configuration.
 
 ### 8.1 Select a Preset
 
-Use the **"Select a preset:"** dropdown to choose a configuration template:
+Use the **"Session Preset"** dropdown (placeholder **"Select a session preset..."**)
+to choose a configuration template:
 
 | Preset | Limit Type | Infusion Limit | Time Limit | Stop Delay |
 |--------|-----------|---------------|------------|------------|
-| **Custom** | *(no changes)* | — | — | — |
 | **SA High** | Both | 10 | 3600 s | 10 s |
 | **SA Mid** | Both | 20 | 3600 s | 10 s |
 | **SA Low** | Both | 40 | 3600 s | 10 s |
-| **SA Extinction** | Time | 0 | 3600 s | 0 s |
+| **SA Extinction** | Time | 30 | 3600 s | 10 s |
 
-Selecting a preset automatically fills in the limit fields. Choose **Custom** to
-configure everything manually.
+Self-administration presets target the Fixed-Ratio (`fr`) paradigm. Pavlovian presets
+(**Pavlovian - Acquisition**, **Pavlovian - Reversal**) are also available. Selecting a
+preset automatically fills in the limit fields; adjust any field to configure manually.
 
 ### 8.2 Select Hardware Components
 
@@ -342,31 +344,35 @@ Check the boxes for each hardware component used in your experiment:
 |----------------|-------------|
 | **LH Lever** | Left-hand lever (pin 13) |
 | **RH Lever** | Right-hand lever (pin 10) |
-| **Cue** | Cue speaker (pin 3) |
-| **Pump** | Infusion pump (pin 4) |
+| **Cue 1** | Primary cue speaker (pin 3) |
+| **Pump 1** | Primary infusion pump (pin 4) |
 | **Lick Circuit** | Lick detection spout (pin 5) |
 | **Laser** | Optogenetic laser (pin 6) |
-| **Imaging Microscope** | Microscope trigger and timestamp (pins 9, 2) |
+| **Microscope** | Microscope trigger and timestamp (pins 9, 2) |
+
+> 📝 **Note:**
+> Secondary devices **Cue 2** (pin 7) and **Pump 2** (pin 8), and an **SLM**
+> timestamp input (pin 11), are also available under Hardware Controls.
 
 > 📝 **Note:**
 > When a new session is created, **no components are pre-selected** and all
-> devices start **disarmed** on the Hardware page. You must check the boxes
-> for each component you intend to use before starting the session. Selecting
-> a preset does not change the component selection.
+> devices start **disarmed** in Hardware Controls. You must enable each component
+> you intend to use before starting the session. Selecting a preset does not
+> change the component selection.
 
 | Component | Initial State | After Reset |
 |-----------|--------------|-------------|
 | **LH Lever** | Not selected | Selected |
 | **RH Lever** | Not selected | Selected |
-| **Cue** | Not selected | Selected |
-| **Pump** | Not selected | Selected |
+| **Cue 1** | Not selected | Selected |
+| **Pump 1** | Not selected | Selected |
 | **Lick Circuit** | Not selected | Not selected |
 | **Laser** | Not selected | Not selected |
-| **Imaging Microscope** | Not selected | Not selected |
+| **Microscope** | Not selected | Not selected |
 
 > 📝 **Note:**
-> When using the **Reset** button on the interface, the components revert to the
-> default set: **LH Lever**, **RH Lever**, **Cue**, and **Pump**.
+> When using the **Reset** control, the components revert to the
+> default set: **LH Lever**, **RH Lever**, **Cue 1**, and **Pump 1**.
 
 ### 8.3 Set Session Limits
 
@@ -390,15 +396,16 @@ Configure how and when the session ends:
 
 ### 8.4 File Configuration
 
-Configure where session data will be saved:
+In the **"File Configuration"** section, configure where session data will be saved:
 
-1. Enter a file name in the **"File name:"** field (placeholder: `"e.g., experiment1.csv"`)
-2. Enter a folder path in the **"Folder name:"** field (placeholder: `"e.g., ~/REACHER/DATA"`)
-3. Click **"Set File Configuration"** to apply
+1. Enter a base name in the **"Filename:"** field
+2. Enter a folder path in the **"Destination:"** field
+3. The configuration is applied to the active session
 
 > 📝 **Note:**
-> The exported file will be saved as an `.xlsx` Excel workbook (not CSV, despite
-> the placeholder text). See [Section 11](#monitor-page) for export details.
+> Exported session data is saved as a **`.zip` archive** (containing CSV and JSON
+> files), not a single spreadsheet. If no destination is set, the archive is saved
+> to your **`~/Downloads`** folder. See [Section 11](#monitor-page) for export details.
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -408,28 +415,29 @@ Configure where session data will be saved:
 
 <a id="hardware-page"></a>
 <details>
-<summary><h2>9. Hardware Page — Adjusting Hardware Settings</h2></summary>
+<summary><h2>9. Session Configuration — Hardware Controls</h2></summary>
 
 This section corresponds to **Step 21** in the manuscript.
 
-Navigate to the **Hardware** page using the sidebar. Here you arm (enable) individual
-devices and configure their operating parameters before starting the session.
+In the **Session Configuration** panel, open the **"Hardware Controls"** section
+(grouped into **System Controls**, **Input Devices**, **Output Devices**, and
+**Two-Photon Devices**). Here you arm (enable) individual devices and configure their
+operating parameters before starting the session.
 
 ### 9.1 Arming Devices
 
-Each hardware component has a toggle button to arm or disarm it. Arming a device
-sends an arm command to the Arduino over the serial connection. The toggle buttons
-are labeled:
+Each hardware component has an arm/disarm toggle. Arming a device sends the
+corresponding command to the Arduino over the serial connection:
 
-| Button | Component |
-|--------|-----------|
-| **Arm LH Lever** | Left-hand lever |
-| **Arm RH Lever** | Right-hand lever |
-| **Arm Cue** | Cue speaker |
-| **Arm Pump** | Infusion pump |
-| **Arm Lick Circuit** | Lick detection circuit |
-| **Arm Laser** | Optogenetic laser |
-| **Arm Scope** | Imaging microscope |
+| Device | Function |
+|--------|----------|
+| **LH Lever** | Left-hand lever |
+| **RH Lever** | Right-hand lever |
+| **Cue 1** | Primary cue speaker |
+| **Pump 1** | Primary infusion pump |
+| **Lick Circuit** | Lick detection circuit |
+| **Laser** | Optogenetic laser |
+| **Microscope** | Imaging microscope |
 
 ### 9.2 Active Lever Selection
 
@@ -478,10 +486,10 @@ behavior is controlled by the firmware and the schedule settings.
 
 <a id="schedule-page"></a>
 <details>
-<summary><h2>10. Schedule Page — Adjusting Within-Trial Dynamics</h2></summary>
+<summary><h2>10. Session Configuration — Paradigm Settings</h2></summary>
 
-Navigate to the **Schedule** page using the sidebar. This page contains sliders that
-control the timing and ratio parameters for each trial.
+In the **Session Configuration** panel, the **Paradigm Settings** control the timing
+and ratio parameters for each trial.
 
 ### Within-Trial Dynamics
 
@@ -496,13 +504,13 @@ control the timing and ratio parameters for each trial.
 |-----------|---------|-------|------|-------------|
 | **Fixed Ratio Interval** | 1 | 1–50 | 1 | Number of active lever presses required per reward |
 
-Each slider has an adjacent **upload** button (upload icon) to send the updated
-value to the Arduino.
+After adjusting a value, send it to the Arduino using the adjacent control.
 
 > 📝 **Note:**
-> The Schedule page also contains sliders for **Progressive Ratio**, **Variable
-> Interval**, and **Omission Interval** — these are used by alternative firmware
-> paradigms and are not active under the Fixed-Ratio sketch.
+> The Paradigm Settings adapt to the loaded firmware. Parameters for **Progressive
+> Ratio** (`pr`), **Variable Interval** (`vi`), **Omission** (`omission`), and
+> **Pavlovian** (`pavlovian`) apply only when the corresponding firmware is running;
+> they are not active under the Fixed-Ratio (`fr`) sketch.
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -512,26 +520,23 @@ value to the Arduino.
 
 <a id="monitor-page"></a>
 <details>
-<summary><h2>11. Monitor Page — Running the Session</h2></summary>
+<summary><h2>11. Session — Running the Session</h2></summary>
 
-Navigate to the **Monitor** page using the sidebar. This is where you verify
+Open the **Session** panel from the sidebar. This is where you verify
 settings, start the experiment, monitor progress in real time, and export data.
 
 ### 11.1 Verify Settings
 
 Before starting, review your configuration:
 
-- The **"REACHER Output:"** pane (dark-themed HTML panel on the right side of the
-  interface) displays serial communication logs and system messages
-- Click the **Start** button (play icon, green) to open the **"Settings Overview"**
-  confirmation modal
+- The event log/timeline displays serial communication and behavioral events
+- Click the **Start** control (play icon) to open the pre-start **summary modal**
 
 ### 11.2 Start the Session
 
-1. Review the settings displayed in the **Settings Overview** modal
-2. If everything is correct, click **"Ready to run?"** inside the modal to begin
-3. The session starts and the header banner updates from "Program not started..." to
-   reflect the active state
+1. Review the settings displayed in the start-summary modal
+2. If everything is correct, confirm to begin the session
+3. The session starts and the header updates to reflect the active state
 
 > 💡 **Tip:**
 > If you need to go back and adjust your configuration, click anywhere outside
@@ -544,9 +549,11 @@ Before starting, review your configuration:
 During the session:
 
 - **Real-time plots** display lever presses, infusions, and other events
-- The **REACHER Output:** pane shows a live log of serial events
-- Use the **Pause** button (pause icon, yellow/warning) to temporarily halt the session
-- Use the **Stop** button (stop icon, red/danger) to end the session permanently
+- The event log shows a live stream of serial events
+- Use the **Pause** control to temporarily halt data processing; it toggles to **Resume**
+- Use **Split segment** to mark the current segment complete and begin a new one
+- Use **Restart session** to restart the run (requires confirmation)
+- Use the **Stop** control (stop icon) to end the session (requires confirmation)
 
 > 📝 **Note:**
 > To save a plot image, hover over any chart and click the **camera icon** in the
@@ -556,19 +563,21 @@ During the session:
 
 After stopping the session:
 
-1. Click **"Export data"** (download icon)
-2. The data is saved as an **`.xlsx`** Excel workbook to the path you configured in
-   [Section 8.4](#program-page)
+1. Export the session data (download icon)
+2. The data is saved as a **`.zip` archive** to the destination you configured in
+   [Section 8.4](#program-page), or to `~/Downloads` if none was set
 
-The exported workbook contains **five sheets**:
+The archive contains CSV and JSON files:
 
-| Sheet | Contents |
-|-------|----------|
-| **Session Summary** | Session metadata (name, duration, limits, file paths) |
-| **Behavior Data** | Timestamped behavioral events (lever presses, infusions, etc.) |
-| **Firmware Information** | Sketch name, version, and schedule type |
-| **Hardware Settings** | Armed components and their parameter values |
-| **Frame Timestamps** | Microscope frame sync timestamps (if imaging was used) |
+| File | Contents |
+|------|----------|
+| **behavior_events.csv** | Timestamped behavioral events — columns: `device, event, start_timestamp, end_timestamp, start_frame_index, end_frame_index` (segmented sessions produce `behavior_events_NNN.csv`) |
+| **frame_timestamps.csv** | Microscope frame sync timestamps (`frame_index, timestamp_ms`), if imaging was used |
+| **slm_timestamps.csv** | SLM timestamps (`event_index, timestamp_ms`), if an SLM was used |
+| **arduino_config.json** | Firmware information and hardware settings |
+| **metadata.json** | Session metadata (name, duration, limits, counts, paths) |
+| **event_log.jsonl** | Authoritative per-event session record |
+| **notes.txt** | Session notes (only if provided) |
 
 <p align="right"><a href="#table-of-contents">↑ Back to top</a></p>
 
@@ -600,4 +609,4 @@ The troubleshooting guide covers:
 
 ---
 
-*This document covers Labrynth v1.0.1 with REACHER v1.1.1 — Fixed-Ratio paradigm, wired sessions.*
+*This document covers Labrynth v3.0.0-beta.6 with REACHER v3.0.0-beta.5 — Fixed-Ratio paradigm.*

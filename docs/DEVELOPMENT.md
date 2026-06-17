@@ -61,14 +61,14 @@ code --install-extension vsciot-vscode.vscode-arduino
 # For reacher
 cd "$HOME\Projects\REACHER\reacher"
 .\venv\Scripts\Activate.ps1
-pip install pytest pytest-cov black flake8 mypy
-pip install -e ".[dev]"  # If setup.py has dev extras
+pip install ruff pytest pytest-asyncio pytest-mock pytest-cov
+pip install -e .  # editable install of the reacher package
 deactivate
 
 # For labrynth
 cd "$HOME\Projects\REACHER\labrynth"
 .\venv\Scripts\Activate.ps1
-pip install pytest black flake8
+pip install ruff pytest
 deactivate
 ```
 
@@ -77,14 +77,14 @@ deactivate
 # For reacher
 cd ~/Projects/REACHER/reacher
 source venv/bin/activate
-pip install pytest pytest-cov black flake8 mypy
-pip install -e ".[dev]"  # If setup.py has dev extras
+pip install ruff pytest pytest-asyncio pytest-mock pytest-cov
+pip install -e .  # editable install of the reacher package
 deactivate
 
 # For labrynth
 cd ~/Projects/REACHER/labrynth
 source venv/bin/activate
-pip install pytest black flake8
+pip install ruff pytest
 deactivate
 ```
 
@@ -98,79 +98,89 @@ deactivate
 reacher/
 ├── src/
 │   └── reacher/
-│       ├── __init__.py           # Package initialization
-│       ├── kernel/               # Core functionality
+│       ├── __init__.py           # Package initialization (__version__)
+│       ├── kernel/               # Core serial + command logic
 │       │   ├── __init__.py
-│       │   └── reacher.py        # Main REACHER class, serial handling
-│       ├── interface/            # Local/wired dashboard components
-│       │   ├── __init__.py
-│       │   ├── dashboard.py      # Main dashboard coordinator
-│       │   ├── interface.py      # Interface wrapper
-│       │   ├── home_tab.py       # Serial connection management
-│       │   ├── program_tab.py    # Experiment configuration
-│       │   ├── hardware_tab.py   # Hardware control panel
-│       │   ├── schedule_tab.py   # Timing configuration
-│       │   └── monitor_tab.py    # Real-time monitoring
-│       ├── remote/               # Network/wireless dashboard (beta)
-│       │   └── [similar structure to interface/]
+│       │   ├── reacher.py        # Main REACHER class, serial handling
+│       │   └── commands.py       # CommandCode enum + COMMAND_REGISTRY
+│       ├── api/                  # FastAPI backend (REST + WebSocket)
+│       │   ├── app.py            # App factory + entry point (port 6229)
+│       │   └── routers/          # session, serial, firmware, hardware,
+│       │                         # program, data, file, websocket,
+│       │                         # discovery, pairing, proxy, lifecycle,
+│       │                         # update, validate
+│       ├── session_manager.py    # Session lifecycle/state
+│       ├── uploader/             # avrdude-based firmware upload (boards.py)
+│       ├── hex/                  # Committed firmware hex (package data)
+│       │   └── <board>/<paradigm>.hex
+│       ├── monitor.py            # Terminal monitor (reacher-monitor)
 │       └── assets/               # Icons, images
-├── tests/                        # Unit tests
-├── debian/                       # Debian package configuration
-├── setup.py                      # Package configuration
-├── requirements.txt              # Python dependencies
+├── firmware/                     # Arduino firmware source (folded in)
+│   ├── fr/  pr/  vi/  omission/  pavlovian/   # paradigm sketches
+│   ├── libraries/REACHERDevices/ # shared library (Commands.h, Pins.h)
+│   └── compile.sh                # writes src/reacher/hex/<board>/*.hex
+├── tests/                        # Unit tests (incl. test_command_parity.py)
+├── pyproject.toml                # Build config, version, deps
 └── README.md                     # Documentation
 ```
 
 **Key Files to Modify:**
 - `kernel/reacher.py` - Core serial communication, event handling
-- `interface/*_tab.py` - Individual dashboard tabs
-- `interface/dashboard.py` - Dashboard coordination
-- `setup.py` - Version, dependencies, package metadata
+- `kernel/commands.py` - Command codes and registry
+- `api/routers/*.py` - REST/WebSocket endpoints
+- `pyproject.toml` - Version, dependencies, package metadata
 
 ### Labrynth (Frontend Application)
 
 ```
 labrynth/
-├── ui/
-│   ├── src/
-│   │   ├── main.py               # Application entry point
-│   │   └── assets/               # UI assets (icons, banners)
-│   ├── setup.spec                # PyInstaller configuration
-│   └── setup.iss                 # Inno Setup configuration (Windows)
+├── web/                          # React 19 + Vite 6 + TypeScript frontend
+│   ├── src/                      # components/, store/, api/, hooks/, types/
+│   ├── vite.config.ts            # dev server :5173, proxies /api and /ws → :6229
+│   └── package.json              # frontend version
+├── cli/                          # Terminal CLI/TUI (python -m cli / reacher-cli)
+├── launcher.py                   # PyInstaller entry point (starts the backend)
+├── build.py                      # Build orchestrator (PyInstaller)
+├── labrynth.spec                 # PyInstaller spec (GUI)
+├── labrynth-cli.spec             # PyInstaller spec (CLI/TUI)
 ├── docs/                         # Documentation
-├── requirements.txt              # Python dependencies (includes reacher)
+├── pyproject.toml                # Python deps (incl. reacher2p>=3.0.0b5)
 └── README.md                     # Documentation
 ```
 
 **Key Files to Modify:**
-- `ui/src/main.py` - Main application logic, launcher window
-- `ui/setup.spec` - Build configuration for PyInstaller
-- `requirements.txt` - Dependencies (ensure reacher version matches)
+- `web/src/` - React components, store, API client
+- `cli/` - Terminal CLI/TUI logic
+- `labrynth.spec` / `labrynth-cli.spec` - Build configuration for PyInstaller
+- `pyproject.toml` - Dependencies (ensure `reacher2p` version matches)
 
 ### REACHER Firmware (Arduino)
 
+Firmware source now lives **inside the reacher repo** at `reacher/firmware/` (the
+standalone `reacher-firmware` repo is archived). Each paradigm is a sketch folder;
+device classes and the shared command map live in a common library.
+
 ```
-reacher-firmware/
-├── operant_FR/                   # Fixed Ratio paradigm (stable)
-│   ├── operant_FR.ino           # Main Arduino sketch
-│   ├── Cue.cpp / Cue.h          # Cue speaker control
-│   ├── Device.cpp / Device.h    # Base device class
-│   ├── Laser.cpp / Laser.h      # Laser control
-│   ├── Lever.cpp / Lever.h      # Lever input handling
-│   ├── LickCircuit.cpp / .h     # Lick detection
-│   └── Pump.cpp / Pump.h        # Pump control
-├── omission-beta/                # Omission paradigm (beta)
-├── operant_PR-beta/              # Progressive Ratio (beta)
-├── operant_VI-beta/              # Variable Interval (beta)
-├── docs/                         # Doxygen documentation
-├── Doxyfile                      # Doxygen configuration
-└── README.md                     # Documentation
+reacher/firmware/
+├── fr/                           # Fixed Ratio paradigm
+│   ├── fr.ino                   # Main Arduino sketch
+│   └── Config.h                 # Paradigm configuration
+├── pr/                           # Progressive Ratio paradigm
+├── vi/                           # Variable Interval paradigm
+├── omission/                     # Omission paradigm
+├── pavlovian/                    # Pavlovian paradigm
+├── libraries/
+│   └── REACHERDevices/           # Shared device library
+│       └── src/
+│           ├── Commands.h        # CommandCode ranges (numeric protocol)
+│           └── Pins.h            # Pin map
+└── compile.sh                    # Compiles sketches → src/reacher/hex/<board>/*.hex
 ```
 
 **Key Files to Modify:**
 - `<paradigm>/<paradigm>.ino` - Main sketch logic
-- `<paradigm>/*.cpp` and `*.h` - Device class implementations
-- Pin configurations are standardized across all paradigms
+- `libraries/REACHERDevices/src/` - Device classes, `Commands.h`, `Pins.h`
+- Pin configurations (`Pins.h`) are standardized across all paradigms
 
 ---
 
@@ -222,34 +232,22 @@ test: Add unit tests for lever debouncing logic
 
 #### Python
 
-Follow PEP 8 style guidelines:
+Lint and format with [ruff](https://docs.astral.sh/ruff/):
 
 ```bash
-# Format code with black
-black src/
+# Check style
+ruff check src/
 
-# Check style with flake8
-flake8 src/ --max-line-length=100
-
-# Type checking with mypy
-mypy src/
+# Auto-format
+ruff format src/
 ```
 
-**Configuration files:**
+**Configuration** lives in `pyproject.toml`:
 
-`.flake8`:
-```ini
-[flake8]
-max-line-length = 100
-exclude = .git,__pycache__,venv
-ignore = E203, W503
-```
-
-`pyproject.toml` (for black):
 ```toml
-[tool.black]
-line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
+[tool.ruff]
+line-length = 120
+target-version = "py310"
 ```
 
 #### Arduino/C++
@@ -266,130 +264,82 @@ Follow Arduino style guidelines:
 
 ## Modifying the Core REACHER Package
 
-The REACHER package is the heart of the system, handling serial communication, event logging, and dashboard components.
+The REACHER package is the heart of the system, handling serial communication, event logging, and the FastAPI backend that the labrynth frontend talks to over REST + WebSocket.
 
 ### Understanding the Architecture
 
 **Data Flow:**
-1. `reacher.py` establishes serial connection to Arduino
+1. `kernel/reacher.py` (class `REACHER`) establishes the serial connection to Arduino
 2. Two threads handle serial communication:
-   - **Reader thread:** Reads data from Arduino, queues it
-   - **Processor thread:** Processes queued data, updates UI
-3. Dashboard tabs interact with REACHER instance via callbacks
-4. Events are logged to CSV files in real-time
+   - **Reader thread:** `read_serial` reads data from Arduino and queues it
+   - **Processor thread:** `handle_queue` drains the queue and dispatches to `handle_data`
+3. The FastAPI layer (`api/app.py` + `api/routers/`) exposes the REACHER instance over REST + WebSocket; the labrynth frontend and CLI are peer clients
+4. Events are written to live logs under `~/REACHER/LOG/<YYYY-MM-DD_HH-MM-SS>/` in real time
 
 ### Common Modification Scenarios
 
 #### Scenario 1: Adding a New Hardware Device
 
-**Step 1: Modify Arduino firmware first** (see firmware section)
+The old Panel/Qt dashboard is gone. In v3, a new device touches three layers:
+firmware, the reacher backend, and the labrynth React frontend.
 
-**Step 2: Update REACHER Python code**
+**Step 1: Modify Arduino firmware first** (see firmware section). Add the device's
+`CommandCode` values to `firmware/libraries/REACHERDevices/src/Commands.h` and handle
+them in each sketch.
 
-1. **Locate the hardware tab** (`src/reacher/interface/hardware_tab.py`):
+**Step 2: Register the commands in the backend**
 
-```python
-# Add new device controls
-self.new_device_arm = pn.widgets.Toggle(name="Arm New Device", value=False)
-self.new_device_param = pn.widgets.IntInput(name="Parameter", value=100)
+Add the matching entries to the `CommandCode` enum and `COMMAND_REGISTRY` in
+`src/reacher/kernel/commands.py` (with the appropriate paradigm filter). The
+`tests/test_command_parity.py` test enforces that `Commands.h` and `CommandCode`
+stay in sync.
 
-# Add callbacks
-self.new_device_arm.param.watch(self._on_new_device_arm, 'value')
-```
+**Step 3: Expose control via the API**
 
-2. **Add serial commands** in callback:
+Hardware control is issued through the hardware router
+(`src/reacher/api/routers/hardware.py`). The router resolves the request to a numeric
+`CommandCode` and sends it over serial; no per-widget callback wiring is needed.
 
-```python
-def _on_new_device_arm(self, event):
-    if event.new:
-        self.reacher.send_command("ARM_NEW_DEVICE")
-    else:
-        self.reacher.send_command("DISARM_NEW_DEVICE")
-```
+**Step 4: Add the frontend control**
 
-3. **Update UI layout:**
-
-```python
-# In hardware_tab.py layout() method
-new_device_section = pn.Column(
-    pn.pane.Markdown("### New Device"),
-    self.new_device_arm,
-    self.new_device_param
-)
-```
+Add the UI control under `labrynth/web/src/` (a component plus its store/API wiring)
+that calls the backend endpoint to arm/disarm and configure the new device.
 
 #### Scenario 2: Modifying Event Logging
 
 **File:** `src/reacher/kernel/reacher.py`
 
-```python
-def _process_serial_data(self, data: str) -> None:
-    """Process data from Arduino."""
-    # Existing parsing logic
-    parts = data.split(',')
-    
-    # Add handling for new event type
-    if parts[0] == "NEW_DEVICE":
-        device_name = parts[0]
-        event_type = parts[1]
-        start_time = int(parts[2])
-        end_time = int(parts[3])
-        
-        # Log to CSV
-        self._log_event(device_name, event_type, start_time, end_time)
-        
-        # Update UI if callback exists
-        if self.on_new_device_event:
-            self.on_new_device_event(event_type, start_time, end_time)
-```
-
-#### Scenario 3: Adding a New Dashboard Tab
-
-1. **Create new tab file** (`src/reacher/interface/new_tab.py`):
+Incoming serial lines (newline-delimited JSON) are read by `read_serial`, queued, and
+drained by `handle_queue`, which dispatches each message to `handle_data`. From there,
+events are routed by level code to the appropriate updater
+(`update_behavioral_events`, `update_frame_events`, `update_slm_events`,
+`update_firmware_information`) and persisted via `_write_event_log`. The firmware
+tags each message with a level code: `000` config, `001` arm/disarm, `006` error,
+`007` behavioral, `008` microscope frame, `009` SLM.
 
 ```python
-import panel as pn
-
-class NewTab:
-    """New functionality tab."""
-    
-    def __init__(self, reacher):
-        self.reacher = reacher
-        self._create_widgets()
-    
-    def _create_widgets(self):
-        self.button = pn.widgets.Button(name="Do Something")
-        self.button.on_click(self._on_button_click)
-    
-    def _on_button_click(self, event):
-        # Implement functionality
-        self.reacher.send_command("NEW_COMMAND")
-    
-    def layout(self):
-        return pn.Column(
-            pn.pane.Markdown("## New Tab"),
-            self.button
-        )
+def handle_data(self, line: str) -> None:
+    """Parse a newline-delimited JSON line from the Arduino and route it by level code."""
+    event = json.loads(line)
+    # ... existing routing on event["level"] ...
+    # Add handling for a new behavioral ("007") event type, e.g.:
+    self.update_behavioral_events(event)   # appends to the in-memory log
+    self._write_event_log(event)           # persists to ~/REACHER/LOG/<session>/
 ```
 
-2. **Register tab in dashboard** (`src/reacher/interface/dashboard.py`):
+#### Scenario 3: Adding a New API Endpoint
 
-```python
-from .new_tab import NewTab
+The Panel dashboard has been replaced by a FastAPI backend and a React frontend.
+To add new functionality, add a backend endpoint and a frontend control.
 
-class Dashboard:
-    def __init__(self, reacher):
-        # Existing tabs
-        self.home_tab = HomeTab(reacher)
-        self.new_tab = NewTab(reacher)  # Add new tab
-        
-    def layout(self):
-        return pn.Tabs(
-            ("Home", self.home_tab.layout()),
-            ("New", self.new_tab.layout()),  # Add to tabs
-            # ... other tabs
-        )
-```
+1. **Add (or extend) a router** under `src/reacher/api/routers/`. Routers are grouped
+   by concern (`session`, `serial`, `hardware`, `program`, `data`, `websocket`, etc.).
+   A handler resolves the request to a `CommandCode` and calls into the `REACHER`
+   instance / `session_manager`.
+
+2. **Wire the frontend** under `labrynth/web/src/`: add an API call in the `api/`
+   layer, a component in `components/`, and any `store/` state it needs. The Vite dev
+   server proxies `/api` and `/ws` to the backend on port 6229.
 
 ### Testing REACHER Changes
 
@@ -440,8 +390,11 @@ source venv/bin/activate  # or .\venv\Scripts\Activate.ps1 on Windows
 # Install modified reacher in editable mode
 pip install -e ../reacher
 
-# Run labrynth
-python ui/src/main.py
+# Run the backend (serves REST + WS on :6229)
+python -m reacher
+
+# In a second terminal, run the frontend dev server (proxies to :6229)
+cd web && npm run dev
 ```
 
 2. **Test with hardware:**
@@ -453,93 +406,58 @@ python ui/src/main.py
 
 ## Modifying Labrynth Frontend
 
-Labrynth is the application wrapper around REACHER, providing the launcher and packaging configuration.
+Labrynth is the application shell around REACHER: a React + Vite frontend (`web/`),
+a terminal CLI/TUI (`cli/`), and the PyInstaller build pipeline. It depends on the
+`reacher2p` package for the backend and does not vendor it.
 
 ### Common Modifications
 
 #### Scenario 1: Changing Application Branding
 
-1. **Replace icon files** in `ui/src/assets/`:
+1. **Replace icon/asset files** under `web/src/` (and the platform icons referenced by
+   `labrynth.spec`):
    - `labrynth-icon.png` (256x256 recommended)
    - `labrynth-icon.ico` (Windows)
    - `labrynth-icon.icns` (macOS)
    - `labrynth-banner-wider.png` (600px wide recommended)
 
-2. **Update window title** in `ui/src/main.py`:
-
-```python
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Your Custom Name")  # Change title
-```
-
-3. **Update footer** in `ui/src/main.py`:
-
-```python
-footer = pn.pane.HTML(
-    """
-    <div style="text-align: center; padding: 10px;">
-        <p>Copyright © 2025 Your Lab</p>
-        <p>Your custom text</p>
-    </div>
-    """
-)
-```
+2. **Update titles, footer, and copy** in the React components under `web/src/`.
 
 #### Scenario 2: Changing Default Port
 
-```python
-# In ui/src/main.py
-def serve_interface():
-    template = pn.template.BootstrapTemplate(...)
-    pn.serve(template, port=8080, show=True)  # Change from 7007
+The backend port is read from the `REACHER_PORT` environment variable (default
+`6229`); the host is `REACHER_HOST` (default `0.0.0.0`). To change it, set the env var
+before launching the backend rather than editing a Python literal:
 
-# Also update in reopen_session():
-def reopen_session(self):
-    if self.panel_process.is_alive():
-        url = "http://localhost:8080"  # Change from 7007
-        webbrowser.open(url)
+```bash
+export REACHER_PORT=8080
+python -m reacher
 ```
+
+If you change the port, also update the proxy targets in `web/vite.config.ts` (which
+proxy `/api` and `/ws` to `:6229` by default).
 
 #### Scenario 3: Adding Startup Configuration
 
-```python
-# In ui/src/main.py, before serve_interface():
-
-import json
-from pathlib import Path
-
-CONFIG_PATH = Path.home() / ".labrynth" / "config.json"
-
-def load_config():
-    """Load user configuration."""
-    if CONFIG_PATH.exists():
-        with open(CONFIG_PATH) as f:
-            return json.load(f)
-    return {"default_save_dir": str(Path.home() / "REACHER")}
-
-def save_config(config):
-    """Save user configuration."""
-    CONFIG_PATH.parent.mkdir(exist_ok=True)
-    with open(CONFIG_PATH, 'w') as f:
-        json.dump(config, f, indent=2)
-
-# Use in main application
-config = load_config()
-```
+Frontend configuration and state live in the React `store/` under `web/src/`.
+Backend-side defaults are environment-driven (`REACHER_PORT`, `REACHER_HOST`,
+`REACHER_STATIC_DIR`, optional `REACHER_HEX_DIR`). Live logs are written under
+`~/REACHER/LOG/<YYYY-MM-DD_HH-MM-SS>/`.
 
 ### Testing Labrynth Changes
 
 **Test locally without building:**
 
 ```bash
-# Activate venv
 cd labrynth
 source venv/bin/activate  # or .\venv\Scripts\Activate.ps1
 
-# Run directly
-python ui/src/main.py
+# Backend (serves REST + WS on :6229)
+export REACHER_STATIC_DIR=$(pwd)/web/dist
+python -m reacher
+
+# Frontend dev server (second terminal)
+cd web && npm run dev
 
 # Test all features manually
 ```
@@ -558,16 +476,18 @@ The firmware controls hardware and communicates with REACHER via serial.
    - Encapsulate pin control and state management
    - Provide consistent interface
 
-2. **Main Loop** (`PROGRAM()` function):
-   - Monitors hardware state
-   - Processes lever presses
-   - Triggers rewards based on paradigm logic
-   - Logs events to serial
+2. **Main Loop** (`loop()` driving the `Scheduler`):
+   - `loop()` calls `ParseCommands()` to handle incoming serial commands and advances
+     the `Scheduler`, which monitors hardware state, processes lever presses, and
+     triggers the reward chain based on the paradigm's `Config.h`
+   - Device callbacks (registered via `SetCallback`) log behavioral events to serial
 
 3. **Serial Commands**:
    - Two-way communication with REACHER
-   - String-based protocol (115200 baud)
-   - JSON for setup data
+   - Newline-delimited JSON, 115200 baud
+   - Commands are numeric `CommandCode` integers; firmware → backend events carry a
+     numeric level code (`000` config, `001` arm/disarm, `006` error, `007`
+     behavioral, `008` microscope frame, `009` SLM)
 
 ### Common Modification Scenarios
 
@@ -577,100 +497,58 @@ The firmware controls hardware and communicates with REACHER via serial.
 
 **Windows (PowerShell):**
 ```powershell
-cd "$HOME\Projects\REACHER\reacher-firmware"
-Copy-Item -Recurse operant_FR operant_NEW
-Rename-Item operant_NEW\operant_FR.ino operant_NEW.ino
+cd "$HOME\Projects\REACHER\reacher\firmware"
+Copy-Item -Recurse fr new
+Rename-Item new\fr.ino new.ino
 ```
 
 **macOS/Linux (Bash):**
 ```bash
-cd ~/Projects/REACHER/reacher-firmware
-cp -r operant_FR operant_NEW
-mv operant_NEW/operant_FR.ino operant_NEW/operant_NEW.ino
+cd ~/Projects/REACHER/reacher/firmware
+cp -r fr new
+mv new/fr.ino new/new.ino
 ```
 
-2. **Modify main sketch** (`operant_NEW/operant_NEW.ino`):
+2. **Adjust the paradigm logic.** Use `fr/` (`fr.ino` + `Config.h`) as the reference.
+   A sketch instantiates the device objects (`Cue`, `Pump`, `Laser`, `SwitchLever`,
+   etc.) on the pins from `Pins.h`, registers behavioral-event callbacks with
+   `SetCallback(...)`, and defines the reward chain in `Config.h` (each step is an
+   `ActionType`, e.g. `ActionType::SET_TIMEOUT`). The `Scheduler` drives the chain from
+   `loop()`. Adapt the chain and callbacks for your paradigm rather than writing a
+   monolithic program function.
+
+3. **Handle any new commands.** Commands arrive as numeric `CommandCode` integers
+   (defined in `libraries/REACHERDevices/src/Commands.h`) and are dispatched in the
+   sketch's `ParseCommands()` switch:
 
 ```cpp
-// Update paradigm-specific logic in PROGRAM() function
-
-void PROGRAM() {
-    if (linkedToGUI && !stopProgram) {
-        // Your paradigm logic here
-        
-        // Example: Different reward schedule
-        if (activeRightLever && rightLeverObject.wasPressed()) {
-            rightLeverPressCount++;
-            
-            // Custom condition
-            if (rightLeverPressCount >= currentRatio && !timeoutStatus) {
-                // Trigger reward
-                triggerReward();
-                
-                // Reset or increment as needed
-                rightLeverPressCount = 0;
-            }
-            
-            // Log event
-            String eventType = timeoutStatus ? "TIMEOUT_PRESS" : "ACTIVE_PRESS";
-            logLeverPress("RH_LEVER", eventType);
-        }
-        
-        // Monitor other devices...
-    }
-}
-
-void triggerReward() {
-    // Custom reward sequence
-    if (cueActive) cueObject.startBurst();
-    if (pumpActive) pumpObject.turnOn();
-    timeoutStatus = true;
-    timeoutStartTime = millis();
+// inside ParseCommands(), dispatching on the numeric CommandCode `code`:
+switch (code) {
+    case Cmd::SET_NEW_PARAM:   // new code added to Commands.h
+        // process parameter from the parsed JSON
+        break;
+    // ... existing command codes
 }
 ```
 
-3. **Update serial commands** (if needed):
+   Add the new code to `Commands.h` and a matching `case` here.
+   `reacher/tests/test_command_parity.py` enforces that `Commands.h` and the Python
+   `CommandCode` enum stay in sync.
 
-```cpp
-void monitorSerialCommands() {
-    // Add new commands
-    if (command == "SET_NEW_PARAM") {
-        int value = getValue();
-        // Process parameter
-    }
-    // ... existing commands
-}
-```
-
-4. **Update JSON setup** (optional):
-
-```cpp
-void sendSetupJSON() {
-    // Add new fields to JSON
-    doc["paradigm"] = "NEW";
-    doc["new_parameter"] = defaultNewParam;
-    // ... existing fields
-    
-    serializeJson(doc, Serial);
-    Serial.println();
-}
-```
+4. **Update identification** (optional). Each sketch reports its identity via
+   `SendIdentification()` — the level-`000` config event carrying the sketch name,
+   version, baud rate, and `schedule`. Update it if your paradigm reports a new
+   `schedule` value.
 
 #### Scenario 2: Modifying Pin Configuration
 
 **WARNING:** Pin changes must be coordinated across all paradigms and documented for users.
 
-```cpp
-// In device declarations at top of sketch
-
-// Old:
-// #define RIGHT_LEVER_PIN 10
-
-// New:
-#define RIGHT_LEVER_PIN 11  // Changed from 10
-
-Lever rightLeverObject(RIGHT_LEVER_PIN, 100);  // Update all references
-```
+Pins are defined in `libraries/REACHERDevices/src/Pins.h` (e.g. `PIN_LEVER_RH = 10`). At
+runtime, every pin **except the fixed microscope-timestamp input (pin 2, INT0)** can be
+remapped via the corresponding `*_SET_PIN` command (e.g. `LEVER_RH_SET_PIN`) without
+recompiling. To change a compile-time default, edit `Pins.h`, then recompile and commit
+the refreshed hex (`bash reacher/firmware/compile.sh`).
 
 **Important:** Update documentation in:
 - README.md
@@ -743,33 +621,21 @@ bool Solenoid::isOn() {
 ```cpp
 #include "Solenoid.h"
 
-// Declare
-#define SOLENOID_PIN 7
-Solenoid solenoidObject(SOLENOID_PIN, 1000);  // 1 second duration
+// Declare on a free pin (see Pins.h for the standard pin map)
+Solenoid solenoidObject(/* pin */ 12, 1000);  // 1 second duration
 
-// In setup()
-// Already initialized
+// In loop(): advance the device each tick (alongside ParseCommands() and the Scheduler)
+solenoidObject.update();
 
-// In PROGRAM()
-void PROGRAM() {
-    // Update device state
-    solenoidObject.update();
-    
-    // Trigger based on condition
-    if (someCondition) {
-        solenoidObject.turnOn();
-        logEvent("SOLENOID", "ACTIVATED");
-    }
-}
-
-// Add serial commands
-void monitorSerialCommands() {
-    if (command == "ARM_SOLENOID") {
+// Dispatch new commands inside ParseCommands(), keyed on the numeric CommandCode.
+// Add ARM_SOLENOID / TRIGGER_SOLENOID to Commands.h (and the Python CommandCode enum) first.
+switch (code) {
+    case Cmd::ARM_SOLENOID:
         solenoidArmed = true;
-    }
-    if (command == "TRIGGER_SOLENOID") {
+        break;
+    case Cmd::TRIGGER_SOLENOID:
         if (solenoidArmed) solenoidObject.turnOn();
-    }
+        break;
 }
 ```
 
@@ -783,14 +649,10 @@ void monitorSerialCommands() {
 
 2. **Serial command testing:**
 
-```
-# In Serial Monitor, send commands:
-LINK
-ARM_SOLENOID
-TRIGGER_SOLENOID
-
-# Observe device behavior and serial output
-```
+   In the Serial Monitor (115200 baud), commands are sent as newline-delimited JSON
+   carrying the numeric `CommandCode` (the codes are defined in `Commands.h`, e.g.
+   `PUMP_ARM=401`, `LASER_ARM=601`). Send the JSON for the device's arm/trigger codes
+   and observe the device behavior and the JSON the firmware emits back.
 
 3. **Integration testing with REACHER:**
    - Update Python code to send new commands
@@ -820,7 +682,7 @@ void triggerSolenoid() {
 Generate documentation:
 
 ```bash
-cd reacher-firmware
+cd reacher/firmware
 doxygen Doxyfile
 # Output in docs/html/index.html
 ```
@@ -833,16 +695,16 @@ When changes span multiple repositories, careful coordination is essential.
 
 ### Dependency Management
 
-**Labrynth depends on REACHER:**
+**Labrynth depends on REACHER** (firmware now ships inside reacher, so there are two
+release tracks, not three):
 ```
-labrynth → reacher (specific version)
+labrynth → reacher2p (pinned: reacher2p>=3.0.0b5) → firmware hex (package data)
 ```
 
 **Version compatibility matrix:**
-| Labrynth | REACHER | Firmware |
-|----------|---------|----------|
-| v1.1.1   | v1.1.1  | v1.0.1-alpha |
-| v1.2.0   | v1.2.0  | v1.1.0   |
+| Labrynth        | REACHER (reacher2p) | Firmware       |
+|-----------------|---------------------|----------------|
+| 3.0.0-beta.6    | 3.0.0-beta.5        | 3.0.0-beta.5   |
 
 ### Change Scenarios
 
@@ -851,11 +713,11 @@ labrynth → reacher (specific version)
 **Example:** Adding a new hardware device
 
 **Step 1: Plan the changes**
-1. Firmware: Add device class and serial commands
-2. REACHER: Add hardware tab controls
-3. Labrynth: No changes needed (uses REACHER)
+1. reacher firmware (`reacher/firmware/`): add device class + `CommandCode`s
+2. reacher backend: register codes in `kernel/commands.py`, add/extend an API router
+3. Labrynth: add the frontend control under `web/src/`
 
-**Step 2: Create feature branches in all repos**
+**Step 2: Create feature branches** in the two repos (`reacher`, `labrynth`):
 
 ```bash
 # In each repository:
@@ -864,32 +726,26 @@ git checkout -b feature/add-solenoid-support
 
 **Step 3: Implement in order (bottom-up)**
 
-1. **Firmware first:**
+1. **reacher firmware + backend (one repo):**
    ```bash
-   cd reacher-firmware
+   cd reacher
    git checkout -b feature/add-solenoid-support
-   # Add Solenoid class, update sketch
+   # Add Solenoid class + CommandCode in firmware/libraries/REACHERDevices/
+   bash firmware/compile.sh          # refresh src/reacher/hex/<board>/*.hex
+   # Register codes in src/reacher/kernel/commands.py, add router handling
    git add .
    git commit -m "feat: Add solenoid device support"
    git push origin feature/add-solenoid-support
    ```
 
-2. **REACHER second:**
-   ```bash
-   cd reacher
-   git checkout -b feature/add-solenoid-support
-   # Add controls in hardware_tab.py
-   # Add command handling
-   git add .
-   git commit -m "feat: Add solenoid controls to hardware tab"
-   git push origin feature/add-solenoid-support
-   ```
-
-3. **Labrynth third (if needed):**
+2. **Labrynth (frontend):**
    ```bash
    cd labrynth
-   # Update requirements.txt if REACHER version changes
-   # Usually no changes needed
+   # Add control under web/src/ (component + api/ + store/)
+   # Bump the reacher2p>=X.Y.Z pin in pyproject.toml if reacher was released
+   git add .
+   git commit -m "feat: Add solenoid control to UI"
+   git push origin feature/add-solenoid-support
    ```
 
 **Step 4: Test integration**
@@ -900,110 +756,67 @@ cd labrynth
 source venv/bin/activate
 pip install -e ../reacher
 
-# Upload modified firmware to Arduino
-
-# Run and test
-python ui/src/main.py
+# Upload modified firmware to Arduino, then:
+python -m reacher        # backend on :6229
+cd web && npm run dev    # frontend dev server
 ```
 
 **Step 5: Create pull requests**
 
 Create PRs in this order:
-1. Firmware PR (merged first)
-2. REACHER PR (reference firmware PR)
-3. Labrynth PR (reference REACHER PR)
+1. reacher PR (firmware + backend; merged first)
+2. Labrynth PR (reference the reacher PR)
 
 Link PRs in descriptions:
 ```markdown
 ## Related PRs
-- Firmware: Otis-Lab-MUSC/reacher-firmware#123
 - REACHER: Otis-Lab-MUSC/reacher#456
 
 ## Testing
-- [x] Tested with firmware PR #123
+- [x] Tested with reacher PR #456
 - [x] Tested end-to-end functionality
 - [x] Updated documentation
 ```
 
-#### Scenario 2: Breaking Change in REACHER
+#### Scenario 2: Adding or Changing a Serial Command
 
-**Example:** Changing serial command protocol
+In v3 the serial protocol is already newline-delimited JSON carrying **numeric
+`CommandCode` integers** (e.g. `SESSION_END=100`, `PUMP_ARM=401`, `LASER_ARM=601`,
+`LEVER_RH_ARM=1001`). Adding or changing a command is a coordinated edit across the
+firmware and backend (both in the reacher repo) plus the frontend.
 
-**Step 1: Version planning**
-- REACHER: Major version bump (v1.x.x → v2.0.0)
-- Firmware: Must update to match
-- Labrynth: Update dependency version
+**Step 1: Scope the change**
+- A new code or a changed range is a backend/firmware contract change — bump reacher
+  accordingly and re-pin labrynth's `reacher2p>=X.Y.Z`.
 
-**Step 2: Implement changes**
+**Step 2: Implement the change**
 
-1. **Update REACHER:**
-   ```python
-   # Old: String commands "ARM_PUMP"
-   # New: JSON commands {"command": "ARM", "device": "PUMP"}
-   
-   # Update reacher.py
-   def send_command(self, command: dict):
-       json_str = json.dumps(command)
-       self.serial.write(json_str.encode())
-   ```
-
-2. **Update Firmware:**
+1. **Firmware** — add/adjust the code in
+   `firmware/libraries/REACHERDevices/src/Commands.h` and handle it in each sketch's
+   command dispatch:
    ```cpp
-   // In monitorSerialCommands()
-   void monitorSerialCommands() {
-       if (Serial.available()) {
-           String input = Serial.readStringUntil('\n');
-           
-           // Parse JSON
-           StaticJsonDocument<256> doc;
-           deserializeJson(doc, input);
-           
-           String command = doc["command"];
-           String device = doc["device"];
-           
-           if (command == "ARM" && device == "PUMP") {
-               pumpActive = true;
-           }
-       }
+   switch (code) {
+       case PUMP_ARM:      // 401
+           pumpActive = true;
+           break;
    }
    ```
 
-3. **Update version numbers:**
-   - `reacher/setup.py`: version="2.0.0"
-   - Firmware: Update version comments
-   - Update compatibility documentation
+2. **Backend** — mirror the value in the `CommandCode` enum and `COMMAND_REGISTRY`
+   in `src/reacher/kernel/commands.py` (with the right paradigm filter). The
+   `tests/test_command_parity.py` test fails if `Commands.h` and `CommandCode` drift.
 
-**Step 3: Migration guide**
+3. **Frontend** — wire the new command into the relevant component/API under
+   `labrynth/web/src/`.
 
-Create MIGRATION.md:
-```markdown
-# Migration Guide: v1.x.x → v2.0.0
+4. **Recompile + version** — run `bash firmware/compile.sh`, commit the refreshed
+   `src/reacher/hex/`, and bump versions via `scripts/bump-version.py`.
 
-## Breaking Changes
+**Step 3: Migration guide** (for breaking changes)
 
-### Serial Command Protocol
-
-**Old (v1.x):**
-```python
-reacher.send_command("ARM_PUMP")
-```
-
-**New (v2.0):**
-```python
-reacher.send_command({"command": "ARM", "device": "PUMP"})
-```
-
-## Firmware Compatibility
-
-- v2.0.0 requires firmware v2.0.0 or later
-- v1.x.x firmware is not compatible
-
-## Upgrade Steps
-
-1. Update REACHER package
-2. Upload new firmware to Arduino
-3. Update Labrynth (if using)
-```
+Create MIGRATION.md documenting the changed codes/ranges, the minimum compatible
+firmware hex (shipped with the reacher release), and the upgrade steps: update the
+`reacher2p` package, reflash firmware, and update labrynth's pin.
 
 #### Scenario 3: Bug Fix That Affects Multiple Repos
 
@@ -1015,35 +828,30 @@ Example bug: Incorrect timestamp calculation
 - REACHER: Parsing timestamps incorrectly
 - Labrynth: Not affected
 
-**Step 2: Fix in both repos**
+**Step 2: Fix in the reacher repo**
+
+Firmware and the serial kernel now live in the same repo, so both fixes go on one
+branch:
 
 ```bash
-# In firmware
-cd reacher-firmware
+cd reacher
 git checkout -b fix/timestamp-calculation
 
-# Fix in .ino file
-# ...
+# Fix the sketch under firmware/<paradigm>/ and recompile hex
+bash firmware/compile.sh
 
-git commit -m "fix: Correct timestamp offset calculation"
+# Fix parsing in src/reacher/kernel/reacher.py (handle_data / update_* methods)
+
+git add .
+git commit -m "fix: Correct timestamp offset in firmware and parsing"
 git push origin fix/timestamp-calculation
-
-# In REACHER
-cd reacher
-git checkout -b fix/timestamp-parsing
-
-# Fix in reacher.py
-# ...
-
-git commit -m "fix: Parse timestamps with correct offset"
-git push origin fix/timestamp-parsing
 ```
 
 **Step 3: Coordinate release**
 
-- Both fixes should be released together
-- Use patch version bump (v1.1.1 → v1.1.2)
-- Note in changelog that both must be updated
+- Release reacher (firmware hex ships with it), then bump labrynth's `reacher2p` pin
+- Use a prerelease/patch bump as appropriate (e.g. 3.0.0-beta.5 → 3.0.0-beta.6)
+- Note in the changelog that the firmware hex must be reflashed
 
 ### Testing Multi-Repository Changes
 
@@ -1076,8 +884,8 @@ cd ../labrynth
 source venv/bin/activate
 pip install -e ../reacher
 
-echo "3. Testing Labrynth imports..."
-python -c "from reacher.interface.interface import Interface; print('OK')"
+echo "3. Testing reacher imports..."
+python -c "from reacher.kernel.reacher import REACHER; print('OK')"
 
 echo "4. Manual test: Launch Labrynth and verify hardware connection"
 read -p "Press enter after verifying hardware test..."
@@ -1095,34 +903,28 @@ echo "=== All tests passed ==="
 
 Location: `reacher/tests/`
 
+Tests use `pytest` with `pytest-asyncio` (`asyncio_mode = "auto"`) and `pytest-mock`.
+`testpaths` is `["tests"]`. A key test, `tests/test_command_parity.py`, fails if the
+firmware `Commands.h` and the `CommandCode` enum in `kernel/commands.py` drift apart.
+
 **Example test:**
 
 ```python
-# tests/kernel/test_reacher.py
-import pytest
+# tests/test_reacher.py
 from reacher.kernel.reacher import REACHER
 
-def test_reacher_initialization():
-    """Test REACHER initializes with correct defaults."""
+def test_reacher_construction():
+    """REACHER constructs without a live serial port."""
     reacher = REACHER()
-    assert reacher.serial_port is None
-    assert reacher.connected is False
+    assert reacher is not None
 
-def test_send_command():
-    """Test command sending."""
+def test_handle_data_routes_behavioral(mocker):
+    """A behavioral message (level 007) is logged."""
     reacher = REACHER()
-    # Mock serial connection
-    reacher.serial = MockSerial()
-    
-    reacher.send_command("TEST")
-    assert reacher.serial.last_command == "TEST"
-
-class MockSerial:
-    def __init__(self):
-        self.last_command = None
-    
-    def write(self, data):
-        self.last_command = data.decode()
+    write_log = mocker.patch.object(reacher, "_write_event_log")
+    # handle_data takes a raw newline-delimited JSON line (str) and parses it internally
+    reacher.handle_data('{"level": "007", "device": "LEVER_RH", "event": "PRESS"}')
+    write_log.assert_called()
 ```
 
 **Run tests:**
@@ -1156,8 +958,8 @@ Create test scenarios that span repositories:
 ## Test: Session Run with Data Export
 
 ### Prerequisites:
-- Arduino with operant_FR firmware uploaded
-- REACHER v1.1.1 installed
+- Arduino with the FR paradigm firmware uploaded
+- reacher (reacher2p) 3.0.0-beta.5 installed
 - Labrynth running
 
 ### Steps:
@@ -1171,12 +973,14 @@ Create test scenarios that span repositories:
 8. Verify: 5 lever presses logged, 5 infusions delivered
 9. Stop session
 10. Export data
-11. Verify CSV contains 10 rows (5 presses + 5 infusions)
+11. Verify the exported ZIP archive contains the expected events
+    (5 presses + 5 infusions); live logs are also under
+    `~/REACHER/LOG/<session>/`
 
 ### Expected Results:
 - [ ] All devices respond correctly
 - [ ] Data appears in real-time graph
-- [ ] CSV file created with correct data
+- [ ] Data archive (ZIP) created with correct data
 - [ ] No errors in console
 ```
 
@@ -1202,7 +1006,7 @@ Maintain a checklist of critical functionality:
 ### Data Management
 - [ ] Session start/stop
 - [ ] Real-time logging
-- [ ] CSV export
+- [ ] Data export (ZIP archive)
 - [ ] Multiple sessions
 
 ### UI Functionality
@@ -1224,34 +1028,28 @@ Maintain a checklist of critical functionality:
 cd reacher
 source venv/bin/activate
 
-# Update version in setup.py first
-# version="1.1.2"
+# Bump the version first (never hand-edit):
+python scripts/bump-version.py ...   # stamps pyproject.toml, __init__.py, firmware
 
-# Build package
-python setup.py sdist bdist_wheel
+# Build the wheel + sdist with the PEP 517 build frontend
+pip install build
+python -m build
 
-# Output in dist/
-# reacher-1.1.2-py3-none-any.whl
-# reacher-1.1.2.tar.gz
+# Output in dist/ (PyPI distribution name is reacher2p; import stays reacher)
+# reacher2p-3.0.0b5-py3-none-any.whl
+# reacher2p-3.0.0b5.tar.gz
 ```
 
-#### Create Debian Package
-
-```bash
-cd reacher
-
-# Update version in debian/changelog
-
-# Build
-python3 -m stdeb.command bdist_deb
-
-# Output in deb_dist/
-# python3-reacher_1.1.2-1_all.deb
-```
+There is no Debian/`stdeb` packaging path for reacher; it is published to PyPI as
+`reacher2p` (the firmware hex ships as package data inside the wheel).
 
 ### Building Labrynth Application
 
-Labrynth uses PyInstaller to create standalone executables.
+Labrynth uses PyInstaller (driven by `build.py`) to create standalone executables.
+`build.py` orchestrates the GUI build via `labrynth.spec` and the CLI/TUI build via
+`labrynth-cli.spec`. The PyInstaller entry point is `launcher.py`, which starts the
+reacher backend (it is not a GUI window). The frontend is built first with Vite
+(`npm run build` in `web/`).
 
 #### Prerequisites
 
@@ -1259,84 +1057,24 @@ Labrynth uses PyInstaller to create standalone executables.
 cd labrynth
 source venv/bin/activate
 pip install pyinstaller
+(cd web && npm install && npm run build)   # produces web/dist for the backend to serve
 ```
 
-#### Build for Windows
+#### Build (all platforms)
 
-**On Windows:**
-```powershell
-cd labrynth\ui
-.\..\..\venv\Scripts\Activate.ps1
-
-# Build with PyInstaller
-pyinstaller setup.spec --clean
-
-# Output in dist/main/
-# To create installer, use Inno Setup with setup.iss
-
-# Run Inno Setup Compiler
-iscc setup.iss
-
-# Output: labrynth_setup.exe
-```
-
-#### Build for macOS
-
-**On macOS:**
 ```bash
-cd labrynth/ui
-source ../../venv/bin/activate
+cd labrynth
+source venv/bin/activate  # or .\venv\Scripts\Activate.ps1 on Windows
 
-# Build with PyInstaller
-pyinstaller setup.spec --clean
-
-# Output: dist/main.app
-
-# Create DMG
-hdiutil create -volname "Labrynth" -srcfolder dist/main.app -ov -format UDZO labrynth.dmg
+# One command orchestrates PyInstaller (labrynth.spec + labrynth-cli.spec)
+python build.py
 ```
 
-#### Build for Linux
+Outputs by platform:
 
-**On Linux:**
-```bash
-cd labrynth/ui
-source ../../venv/bin/activate
-
-# Build with PyInstaller
-pyinstaller setup.spec --clean
-
-# Create DEB package
-mkdir -p labrynth-deb/usr/local/bin
-mkdir -p labrynth-deb/usr/share/applications
-mkdir -p labrynth-deb/DEBIAN
-
-# Copy executable
-cp dist/main labrynth-deb/usr/local/bin/labrynth
-
-# Create control file
-cat > labrynth-deb/DEBIAN/control << EOF
-Package: labrynth
-Version: 1.1.1
-Architecture: amd64
-Maintainer: Your Name <email@example.com>
-Description: REACHER Labrynth Application
- Frontend application for REACHER behavioral control system.
-EOF
-
-# Create desktop entry
-cat > labrynth-deb/usr/share/applications/labrynth.desktop << EOF
-[Desktop Entry]
-Name=Labrynth
-Exec=/usr/local/bin/labrynth
-Type=Application
-Categories=Science;
-EOF
-
-# Build DEB
-dpkg-deb --build labrynth-deb
-mv labrynth-deb.deb labrynth_1.1.1_amd64.deb
-```
+- **macOS:** `dist/Labrynth.app` (plus `dist/LabrynthCLI*`)
+- **Windows:** `dist/Labrynth/Labrynth.exe` (plus `dist/LabrynthCLI/...`)
+- **Linux:** `dist/Labrynth/Labrynth` (plus `dist/LabrynthCLI/...`)
 
 ### Automated Building with GitHub Actions
 
@@ -1360,15 +1098,16 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install .
           pip install pyinstaller
+          (cd web && npm ci && npm run build)
       - name: Build executable
-        run: pyinstaller ui/setup.spec --clean
+        run: python build.py
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: labrynth-windows
-          path: ui/dist/main.exe
+          path: dist/Labrynth/Labrynth.exe
 
   build-macos:
     runs-on: macos-latest
@@ -1395,40 +1134,39 @@ Follow [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
 
 ### Version File Locations
 
+Never hand-edit these — use each repo's `scripts/bump-version.py` (reacher's script
+also stamps the firmware version strings).
+
 **REACHER:**
-- `setup.py`: `version="1.1.1"`
-- `src/reacher/__init__.py`: `__version__ = "1.1.1"`
+- `pyproject.toml`: `version = "3.0.0-beta.5"`
+- `src/reacher/__init__.py`: `__version__ = "3.0.0-beta.5"`
 
 **Labrynth:**
-- `requirements.txt`: `reacher==1.1.1` or `reacher>=1.1.1`
-- Version displayed in UI (if applicable)
+- `pyproject.toml` and `web/package.json`: `3.0.0-beta.6`
+- dependency pin in `pyproject.toml`: `reacher2p>=3.0.0b5`
 
-**Firmware:**
-- Comment header in each `.ino` file:
-  ```cpp
-  /**
-   * @file operant_FR.ino
-   * @version 1.0.1-alpha
-   * @date 2025-01-15
-   */
-  ```
+**Firmware** (inside the reacher repo):
+- `firmware/libraries/REACHERDevices/library.properties`: `version=3.0.0-beta.5`
+  (stamped by reacher's `scripts/bump-version.py`; each sketch's `SendIdentification()`
+  reports the same string)
 
 ### Updating Versions
 
 When preparing a release:
 
 1. **Decide version number** based on changes
-2. **Update all version files**
+2. **Run `scripts/bump-version.py`** to stamp all version files (the sanctioned path)
 3. **Update CHANGELOG.md**
-4. **Create git tag**
+4. **Create git tag** (PyPI/CI publishes on tag)
 
 ```bash
-# Update version in files, then:
+# Bump via the repo's script (see its --help for the exact invocation), then:
+python scripts/bump-version.py
 git add .
-git commit -m "chore: Bump version to 1.2.0"
-git tag -a v1.2.0 -m "Release v1.2.0"
+git commit -m "chore: Bump version to 3.0.0-beta.6"
+git tag -a v3.0.0-beta.6 -m "Release v3.0.0-beta.6"
 git push origin main
-git push origin v1.2.0
+git push origin v3.0.0-beta.6
 ```
 
 ### Changelog Management
@@ -1440,11 +1178,11 @@ Maintain CHANGELOG.md in each repository:
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.0] - 2025-02-15
+## [3.0.0-beta.6] - 2026-06-15
 
 ### Added
 - Solenoid device support
-- Network session mode (beta)
+- Additional API router endpoint
 
 ### Changed
 - Improved serial connection stability
@@ -1452,10 +1190,10 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Timestamp offset calculation bug
 
-## [1.1.1] - 2025-01-20
+## [3.0.0-beta.5] - 2026-06-01
 
 ### Fixed
-- Hardware tab UI layout issue
+- Hardware control UI layout issue
 - Data export path handling on Windows
 ```
 
@@ -1475,93 +1213,61 @@ All notable changes to this project will be documented in this file.
 
 ### Release Steps
 
-#### 1. Firmware Release
+There are two release tracks: **reacher** (which now ships the firmware hex as package
+data) and **labrynth**. Release reacher first, then bump labrynth's `reacher2p` pin.
 
-```bash
-cd reacher-firmware
-git checkout main
-git pull origin main
-
-# Create release branch
-git checkout -b release/v1.1.0
-
-# Update version in file headers
-# Update README.md
-
-git add .
-git commit -m "chore: Prepare v1.1.0 release"
-git push origin release/v1.1.0
-
-# Create PR to main
-# After merge:
-git checkout main
-git pull
-git tag -a v1.1.0 -m "Release v1.1.0"
-git push origin v1.1.0
-```
-
-**GitHub Release:**
-1. Go to repository → Releases → New Release
-2. Choose tag: v1.1.0
-3. Title: "REACHER Firmware v1.1.0"
-4. Description: Copy from CHANGELOG.md
-5. Upload assets:
-   - operant_FR.zip
-   - operant_PR-beta.zip
-   - etc.
-6. Mark pre-release if beta/alpha
-7. Publish
-
-#### 2. REACHER Package Release
+#### 1. REACHER Release (includes firmware hex)
 
 ```bash
 cd reacher
 git checkout main
 git pull origin main
 
-# Build package
-python setup.py sdist bdist_wheel
+# If firmware changed: edit sketches/library, recompile, commit the hex
+bash firmware/compile.sh
+git add src/reacher/hex && git commit -m "chore: recompile firmware hex"
 
-# Test installation
-pip install dist/reacher-1.1.1-py3-none-any.whl
+# Bump version (also stamps firmware version strings) and build the wheel
+python scripts/bump-version.py
+python -m build
 
-# Create release
-git tag -a v1.1.1 -m "Release v1.1.1"
-git push origin v1.1.1
+# Tag — CI publishes reacher2p to PyPI on tag
+git tag -a v3.0.0-beta.5 -m "Release v3.0.0-beta.5"
+git push origin main
+git push origin v3.0.0-beta.5
 ```
 
 **GitHub Release:**
-- Upload wheel file: `reacher-1.1.1-py3-none-any.whl`
-- Upload tarball: `reacher-1.1.1.tar.gz`
+- Upload wheel: `reacher2p-3.0.0b5-py3-none-any.whl`
+- Upload sdist: `reacher2p-3.0.0b5.tar.gz`
+- Mark as pre-release for beta/alpha tags
 
-**PyPI Upload** (optional):
-```bash
-pip install twine
-twine upload dist/*
-```
+**PyPI:** Publishing is automated via a trusted publisher on tag (distribution name
+`reacher2p`). No manual `twine upload` is required.
 
-#### 3. Labrynth Application Release
+#### 2. Labrynth Application Release
 
 ```bash
 cd labrynth
 git checkout main
 git pull origin main
 
-# Update requirements.txt to use new REACHER version
-# reacher==1.1.1
+# Bump the reacher2p pin in pyproject.toml to the just-released reacher version
+# reacher2p>=3.0.0b5
 
-# Build for each platform (or use CI/CD)
-# See Building and Packaging section
+# Build for each platform (or use CI/CD) — see Building and Packaging section
+python build.py
 
-# Create release
-git tag -a v1.1.1 -m "Release v1.1.1"
-git push origin v1.1.1
+# Tag
+git tag -a v3.0.0-beta.6 -m "Release v3.0.0-beta.6"
+git push origin v3.0.0-beta.6
 ```
 
 **GitHub Release:**
-- Upload: `labrynth_x64.exe` (Windows)
-- Upload: `labrynth_x64.dmg` (macOS)
-- Upload: `labrynth_amd64.deb` (Linux)
+- Upload: `Labrynth.exe` / `Labrynth/` (Windows)
+- Upload: `Labrynth.app` (macOS)
+- Upload: `Labrynth/Labrynth` (Linux)
+- (plus the corresponding `LabrynthCLI` artifacts)
 
 ### Post-Release
 
@@ -1708,14 +1414,13 @@ Closes #123
 
 - [REACHER Documentation](https://github.com/Otis-Lab-MUSC/reacher)
 - [Labrynth Documentation](https://github.com/Otis-Lab-MUSC/labrynth)
-- [Firmware Documentation](https://github.com/Otis-Lab-MUSC/reacher-firmware/docs)
+- [Firmware Documentation](https://github.com/Otis-Lab-MUSC/reacher) — firmware source now lives in the reacher package under `firmware/`; the standalone [reacher-firmware](https://github.com/Otis-Lab-MUSC/reacher-firmware) repository is archived
 
 ### External Resources
 
 - [Git Documentation](https://git-scm.com/doc)
 - [Python Package Guide](https://packaging.python.org/)
 - [Arduino Reference](https://www.arduino.cc/reference/en/)
-- [Panel Documentation](https://panel.holoviz.org/)
 - [PySerial Documentation](https://pyserial.readthedocs.io/)
 
 ### Community

@@ -36,11 +36,11 @@ The REACHER system is composed of four coordinated repositories:
    - Manages multiple simultaneous sessions
    - GitHub: `https://github.com/Otis-Lab-MUSC/labrynth`
 
-3. **reacher-firmware** (Arduino Firmware)
+3. **Firmware** (Arduino Firmware)
    - Low-level Arduino sketches for hardware control
    - Controls solenoids, pumps, sensors, levers, and cues
-   - Multiple paradigms: Fixed Ratio (FR), Progressive Ratio (PR), Variable Interval (VI), Omission
-   - GitHub: `https://github.com/Otis-Lab-MUSC/reacher-firmware`
+   - Multiple paradigms: Fixed Ratio (FR), Progressive Ratio (PR), Variable Interval (VI), Omission, Pavlovian
+   - Firmware source now ships inside the reacher package (folded into `reacher/firmware/`); the standalone repo is archived: `https://github.com/Otis-Lab-MUSC/reacher-firmware`
 
 ---
 
@@ -59,13 +59,13 @@ The REACHER system is composed of four coordinated repositories:
 ### Required Software
 
 - **Git**: Version control system
-- **Python**: 3.8 or higher (3.9-3.11 recommended)
-- **Arduino IDE**: For uploading firmware to microcontrollers
+- **Python**: 3.10 or higher (3.10-3.13 recommended)
+- **Arduino IDE** (optional): Only needed to build firmware from source. The app ships pre-compiled firmware and flashes it via the Firmware Upload card.
 - **Web Browser**: For Labrynth interface
 
 ### Hardware Requirements
 
-- Arduino-compatible microcontroller (e.g., Arduino UNO)
+- Arduino-compatible microcontroller (Arduino Mega 2560 default/current; Arduino UNO supported as legacy)
 - USB-A to USB-B cable
 - Experimental rig components (levers, pumps, cues, etc.)
 - Optional: Raspberry Pi for distributed setups
@@ -218,7 +218,9 @@ You have two options for cloning: HTTPS (simpler) or SSH (more secure, requires 
 git clone https://github.com/Otis-Lab-MUSC/doncheck-et-al-nature-protocols-2025.git
 git clone https://github.com/Otis-Lab-MUSC/reacher.git
 git clone https://github.com/Otis-Lab-MUSC/labrynth.git
-git clone https://github.com/Otis-Lab-MUSC/reacher-firmware.git
+# Firmware source now ships inside the reacher package (reacher/firmware/); the standalone
+# reacher-firmware repository is archived and no longer needs cloning:
+# https://github.com/Otis-Lab-MUSC/reacher-firmware
 
 # Verify all repositories are present
 ls
@@ -230,7 +232,9 @@ ls
 git clone https://github.com/Otis-Lab-MUSC/doncheck-et-al-nature-protocols-2025.git
 git clone https://github.com/Otis-Lab-MUSC/reacher.git
 git clone https://github.com/Otis-Lab-MUSC/labrynth.git
-git clone https://github.com/Otis-Lab-MUSC/reacher-firmware.git
+# Firmware source now ships inside the reacher package (reacher/firmware/); the standalone
+# reacher-firmware repository is archived and no longer needs cloning:
+# https://github.com/Otis-Lab-MUSC/reacher-firmware
 
 # Verify all repositories are present
 ls -la
@@ -285,7 +289,8 @@ Then add the key to GitHub:
 git clone git@github.com:Otis-Lab-MUSC/doncheck-et-al-nature-protocols-2025.git
 git clone git@github.com:Otis-Lab-MUSC/reacher.git
 git clone git@github.com:Otis-Lab-MUSC/labrynth.git
-git clone git@github.com:Otis-Lab-MUSC/reacher-firmware.git
+# reacher-firmware is archived (firmware now lives in reacher/firmware/); cloning it is no longer necessary
+# https://github.com/Otis-Lab-MUSC/reacher-firmware
 ```
 
 ---
@@ -359,10 +364,7 @@ python -m venv venv
 # Upgrade pip
 python -m pip install --upgrade pip
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Install the reacher package in development mode
+# Install the reacher package in development mode (reacher uses pyproject.toml; there is no requirements.txt)
 pip install -e .
 
 # Deactivate when done
@@ -383,10 +385,7 @@ source venv/bin/activate
 # Upgrade pip
 python -m pip install --upgrade pip
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Install the reacher package in development mode
+# Install the reacher package in development mode (reacher uses pyproject.toml; there is no requirements.txt)
 pip install -e .
 
 # Deactivate when done
@@ -409,16 +408,15 @@ python -m venv venv
 # Upgrade pip
 python -m pip install --upgrade pip
 
-# Install dependencies
-pip install -r requirements.txt
+# Install labrynth in development mode (uses pyproject.toml; pulls in reacher2p)
+pip install -e .
 
 # IMPORTANT: Install the reacher package
 # Option 1: Install from the local reacher directory
 pip install -e ..\reacher
 
-# Option 2: Install from wheel file (if available)
-# Download the wheel from: https://github.com/Otis-Lab-MUSC/reacher/releases/download/v1.1.1/reacher-1.1.1-py3-none-any.whl
-# pip install reacher-1.1.1-py3-none-any.whl
+# Option 2: Install from PyPI (the distribution name is reacher2p; the import stays `reacher`)
+# pip install reacher2p
 
 # Deactivate when done
 deactivate
@@ -438,17 +436,15 @@ source venv/bin/activate
 # Upgrade pip
 python -m pip install --upgrade pip
 
-# Install dependencies
-pip install -r requirements.txt
+# Install labrynth in development mode (uses pyproject.toml; pulls in reacher2p)
+pip install -e .
 
 # IMPORTANT: Install the reacher package
 # Option 1: Install from the local reacher directory
 pip install -e ../reacher
 
-# Option 2: Install from wheel file (if available)
-# Download using curl or wget:
-# curl -L -o reacher-1.1.1-py3-none-any.whl https://github.com/Otis-Lab-MUSC/reacher/releases/download/v1.1.1/reacher-1.1.1-py3-none-any.whl
-# pip install reacher-1.1.1-py3-none-any.whl
+# Option 2: Install from PyPI (the distribution name is reacher2p; the import stays `reacher`)
+# pip install reacher2p
 
 # Deactivate when done
 deactivate
@@ -465,8 +461,8 @@ cd "$HOME\Projects\REACHER\labrynth"
 .\venv\Scripts\Activate.ps1
 
 # Test imports
-python -c "import reacher; print('REACHER version:', reacher.__version__ if hasattr(reacher, '__version__') else 'imported successfully')"
-python -c "import panel; print('Panel version:', panel.__version__)"
+python -c "import reacher; print(reacher.__version__)"
+python -c "import fastapi; print('FastAPI imported successfully')"
 python -c "import serial; print('PySerial imported successfully')"
 
 deactivate
@@ -479,8 +475,8 @@ cd ~/Projects/REACHER/labrynth
 source venv/bin/activate
 
 # Test imports
-python -c "import reacher; print('REACHER version:', reacher.__version__ if hasattr(reacher, '__version__') else 'imported successfully')"
-python -c "import panel; print('Panel version:', panel.__version__)"
+python -c "import reacher; print(reacher.__version__)"
+python -c "import fastapi; print('FastAPI imported successfully')"
 python -c "import serial; print('PySerial imported successfully')"
 
 deactivate
@@ -489,6 +485,8 @@ deactivate
 ---
 
 ## Arduino IDE Setup
+
+> **The Arduino IDE is optional.** The standard workflow flashes pre-compiled firmware from the app's "Firmware Upload" card (select board, select paradigm, upload). You only need the Arduino IDE to build firmware from source. The firmware still uses the ArduinoJson library when compiled from source.
 
 ### Install Arduino IDE
 
@@ -559,7 +557,7 @@ The firmware requires the following Arduino libraries:
 1. **Connect your Arduino via USB**
 
 2. **Select your board:**
-   - Tools → Board → Arduino AVR Boards → Arduino Uno (or your specific board)
+   - Tools → Board → Arduino AVR Boards → Arduino Mega 2560 (default/current; Arduino Uno is supported as legacy)
 
 3. **Select the COM port:**
    - Tools → Port → Select your Arduino's port
@@ -569,39 +567,51 @@ The firmware requires the following Arduino libraries:
 
 ### Upload Firmware to Arduino
 
-1. **Choose a paradigm from the firmware repository:**
-   - `operant_FR` - Fixed Ratio (most commonly used, stable)
-   - `omission-beta` - Omission contingency (beta)
-   - `operant_PR-beta` - Progressive Ratio (beta)
-   - `operant_VI-beta` - Variable Interval (beta)
+#### Standard workflow: Firmware Upload card (recommended)
 
-2. **Open the sketch:**
+The app ships pre-compiled firmware and flashes it via avrdude — the Arduino IDE is not required.
+
+1. In the dashboard's **Device Setup** panel, find the **Firmware Upload** card.
+2. Select the board from the board dropdown (**UNO** or **MEGA**).
+3. Select a paradigm from the paradigm dropdown ("Select paradigm...").
+4. Click the upload button and watch the progress indicator.
+
+#### Optional: build from source in the Arduino IDE
+
+Firmware source lives inside the reacher package at `reacher/firmware/`. Paradigm sketch folders are:
+   - `fr` - Fixed Ratio (most commonly used)
+   - `pr` - Progressive Ratio
+   - `vi` - Variable Interval
+   - `omission` - Omission contingency
+   - `pavlovian` - Pavlovian
+
+1. **Open the sketch:**
 
 **Windows (PowerShell):**
 ```powershell
-# Navigate to firmware directory
-cd "$HOME\Projects\REACHER\reacher-firmware"
+# Navigate to firmware directory (inside the reacher package)
+cd "$HOME\Projects\REACHER\reacher\firmware"
 
 # For Fixed Ratio paradigm (recommended to start):
-# Open: operant_FR\operant_FR.ino in Arduino IDE
+# Open: fr\fr.ino in Arduino IDE
 ```
 
 **macOS/Linux (Bash):**
 ```bash
-# Navigate to firmware directory
-cd ~/Projects/REACHER/reacher-firmware
+# Navigate to firmware directory (inside the reacher package)
+cd ~/Projects/REACHER/reacher/firmware
 
 # For Fixed Ratio paradigm (recommended to start):
-# Open: operant_FR/operant_FR.ino in Arduino IDE
+# Open: fr/fr.ino in Arduino IDE
 ```
 
-3. **In Arduino IDE:**
+2. **In Arduino IDE:**
    - File → Open → Navigate to the `.ino` file
    - Verify/Compile: Click the checkmark button (or Sketch → Verify/Compile)
    - Upload: Click the arrow button (or Sketch → Upload)
    - Wait for "Done uploading" message
 
-4. **Verify upload:**
+3. **Verify upload:**
    - Open Serial Monitor: Tools → Serial Monitor
    - Set baud rate to 115200
    - You should see initialization messages from the Arduino
@@ -631,14 +641,19 @@ The REACHER firmware uses the following pin configuration:
 
 | Pin | Function | Type | Notes |
 |-----|----------|------|-------|
-| 2 | Frame timestamp trigger | Input | For imaging synchronization |
+| 2 | Microscope timestamp trigger | Input | INT0, fixed (not remappable) |
 | 3 | Cue speaker | PWM Output | Must be PWM-capable |
 | 4 | Pump | Digital Output | Controls infusion pump |
-| 5 | Lick circuit | Digital Input | Detects licking behavior |
+| 5 | Lick circuit | Digital Input | INPUT_PULLUP; detects licking behavior |
 | 6 | Laser | Digital Output | For optogenetic stimulation |
-| 9 | Imaging trigger | Digital Output | Triggers imaging system |
-| 10 | Right-hand lever | Digital Input | Active/inactive lever |
-| 13 | Left-hand lever | Digital Input | Active/inactive lever |
+| 7 | Cue 2 | PWM Output | Second cue speaker |
+| 8 | Pump 2 | Digital Output | Second infusion pump |
+| 9 | Microscope trigger | Digital Output | Triggers imaging system |
+| 10 | Right-hand lever | Digital Input | INPUT_PULLUP; active/inactive lever |
+| 11 | SLM timestamp | Input | PCINT, remappable (8-13) |
+| 13 | Left-hand lever | Digital Input | INPUT_PULLUP; active/inactive lever |
+
+All pins are runtime-remappable **except pin 2** (INT0, fixed).
 
 ### Wiring Guidelines
 
@@ -650,14 +665,11 @@ The REACHER firmware uses the following pin configuration:
 
 ### Testing Hardware
 
-Use Arduino IDE Serial Monitor to test hardware connectivity:
+Arm and test devices from the dashboard's **Hardware Controls** (in the Session Configuration panel). The dashboard sends numeric `CommandCode` values over the serial link as newline-delimited JSON — the firmware no longer accepts the old string commands typed into the Arduino Serial Monitor.
 
-1. Upload firmware and open Serial Monitor (115200 baud)
-2. Send command: `LINK` - Should respond with confirmation
-3. Test individual components with commands like:
-   - `ARM_LEVER_RH` - Arm right-hand lever
-   - `ARM_PUMP` - Arm pump
-   - `ARM_CS` - Arm cue speaker
+1. Connect to the Arduino from the **Device Setup** panel.
+2. In **Session Configuration → Hardware Controls**, arm a device (e.g. arming the pump sends `PUMP_ARM` = 401; arming the right-hand lever sends `LEVER_RH_ARM` = 1001).
+3. Use the per-device **Test** buttons to fire a device (e.g. the pump Test sends `PUMP_TEST` = 403, the cue Test sends `CUE_TEST` = 303). The dashboard sends the corresponding numeric command automatically.
 
 ---
 
@@ -667,191 +679,138 @@ Use Arduino IDE Serial Monitor to test hardware connectivity:
 
 If you prefer not to run from source code, download the pre-built application:
 
+Release assets are version-stamped, so download the one matching the latest
+release from the [releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases/latest)
+(substitute the current `<version>`, e.g. `3.0.0-beta.6`).
+
 **Windows:**
 ```powershell
-# Download from browser or using PowerShell:
-Invoke-WebRequest -Uri "https://github.com/Otis-Lab-MUSC/labrynth/releases/latest/download/labrynth_x64.exe" -OutFile "labrynth.exe"
-
-# Run the application
-.\labrynth.exe
+# Download labrynth-<version>-windows-x64.exe (Inno Setup installer) from:
+#   https://github.com/Otis-Lab-MUSC/labrynth/releases/latest
+# then run the installer:
+.\labrynth-<version>-windows-x64.exe
 ```
 
-**macOS:**
+**macOS (Apple Silicon):**
 ```bash
-# Download DMG
-curl -L -o labrynth.dmg "https://github.com/Otis-Lab-MUSC/labrynth/releases/latest/download/labrynth_x64.dmg"
-
-# Open DMG and drag to Applications
-open labrynth.dmg
+# Download labrynth-<version>-macos-arm64.dmg from:
+#   https://github.com/Otis-Lab-MUSC/labrynth/releases/latest
+# Open the .dmg, drag Labrynth.app to /Applications, then launch:
+open /Applications/Labrynth.app
 ```
 
 **Linux (Ubuntu/Debian):**
 ```bash
-# Download DEB package
-wget https://github.com/Otis-Lab-MUSC/labrynth/releases/latest/download/labrynth_amd64.deb
-
-# Install
-sudo dpkg -i labrynth_amd64.deb
-
-# Fix dependencies if needed
-sudo apt --fix-broken install
-
-# Run
-labrynth
+# Download labrynth_<version>_amd64.deb from:
+#   https://github.com/Otis-Lab-MUSC/labrynth/releases/latest
+# then install:
+sudo dpkg -i labrynth_<version>_amd64.deb
+# Or use the portable AppImage (labrynth-<version>-linux-x64.AppImage):
+#   chmod +x labrynth-<version>-linux-x64.AppImage && ./labrynth-<version>-linux-x64.AppImage
 ```
+
+The bundled app opens your browser to `http://localhost:6229/` and runs a system-tray icon; close it from the tray to quit.
 
 ### Running from Source Code
 
-#### Method 1: Using the Launcher (Recommended)
+#### Method 1: Run the backend (Recommended)
+
+The reacher backend (FastAPI + Uvicorn) serves the React app same-origin on port 6229.
 
 **Windows (PowerShell):**
 ```powershell
-# Navigate to labrynth UI directory
-cd "$HOME\Projects\REACHER\labrynth\ui\src"
-
-# Activate virtual environment
-..\..\venv\Scripts\Activate.ps1
-
-# Run the application
-python main.py
-
-# The launcher window will open, and your browser will launch with the dashboard
-# Keep the launcher window open while using the application
-```
-
-**macOS/Linux (Bash):**
-```bash
-# Navigate to labrynth UI directory
-cd ~/Projects/REACHER/labrynth/ui/src
-
-# Activate virtual environment
-source ../../venv/bin/activate
-
-# Run the application
-python main.py
-
-# The launcher window will open, and your browser will launch with the dashboard
-# Keep the launcher window open while using the application
-```
-
-#### Method 2: Direct Panel Serve
-
-**Windows (PowerShell):**
-```powershell
+# From the labrynth directory (so REACHER_STATIC_DIR resolves)
 cd "$HOME\Projects\REACHER\labrynth"
 .\venv\Scripts\Activate.ps1
 
-# Run Panel server directly (advanced)
-panel serve ui\src\main.py --show --port 7007
+# Launch the backend (also available as the `reacher` entry point)
+python -m reacher
+
+# Then open http://localhost:6229/ in your browser
 ```
 
 **macOS/Linux (Bash):**
 ```bash
+# From the labrynth directory (so REACHER_STATIC_DIR resolves)
 cd ~/Projects/REACHER/labrynth
 source venv/bin/activate
 
-# Run Panel server directly (advanced)
-panel serve ui/src/main.py --show --port 7007
+# Launch the backend (also available as the `reacher` entry point)
+python -m reacher
+
+# Then open http://localhost:6229/ in your browser
+```
+
+#### Method 2: Frontend dev server (for frontend development)
+
+For iterating on the React frontend, run the Vite dev server alongside the backend. It serves on `:5173` and proxies `/api` and `/ws` to the backend on `:6229`.
+
+```bash
+# Backend in one terminal (see Method 1), then:
+cd ~/Projects/REACHER/labrynth/web
+npm run dev
 ```
 
 ### Using the Labrynth Interface
 
-Once the application is running, follow these steps:
+Once the application is running, the dashboard has three sidebar panels — **Device Setup**, **Session Configuration**, and **Session**. Follow these steps:
 
-#### Step 1: Create a New Session
+#### Step 1: Connect to the Microcontroller (Device Setup panel)
 
-1. In the "Create a session" area, enter a unique name (e.g., "Experiment_001")
-2. Click **"New wired session"** for a local setup
-3. A new tab will open for your session
-
-#### Step 2: Connect to Microcontroller
-
-1. Navigate to the **Home Tab**
-2. Click **"Search Microcontrollers"** to scan for available COM ports
-3. Select the COM port for your Arduino from the dropdown
+1. Open the **Device Setup** panel.
+2. In the **COM Port** section, choose your Arduino's port from the dropdown ("Select port...").
    - Windows: COM3, COM4, etc.
    - macOS: /dev/cu.usbmodem*
    - Linux: /dev/ttyACM0, /dev/ttyUSB0
-4. Click **"Connect"** to establish serial connection
-5. Verify connection status shows "Connected"
+3. Enter a session name in the session-name field (placeholder: *What would you like to name this session? (e.g., BOX_1)*).
+4. The panel shows the connected **Port**, **Board**, and **Paradigm**. (To pair a remote machine instead, use **Add Machine** and enter its URL and the pairing code, e.g. `000-000`.)
 
-#### Step 3: Configure Experiment (Program Tab)
+#### Step 2: Configure the Experiment (Session Configuration panel)
 
-1. Go to **Program Tab**
-2. **Select Hardware:** Check components you'll use:
-   - Levers (left/right)
-   - Pump
-   - Cue speaker
-   - Laser
-   - Lick circuit
-3. **Set Limits:**
-   - Maximum session time (e.g., 3600 seconds = 1 hour)
-   - Maximum infusion count (if applicable)
-   - Other paradigm-specific limits
-4. **File Configuration:**
-   - Enter data filename (e.g., "mouse_01_session_1")
-   - Choose save location on your computer
-   - Files are saved to `~/REACHER/` by default if not specified
+1. Open the **Session Configuration** panel.
+2. **File Configuration:** set **Filename:** (e.g., "mouse_01_session_1") and **Destination:** (the export folder).
+3. **Session Preset** ("Select a session preset...") — for FR self-administration, choose one of: **SA High** (Both, 3600 s, infusion 10, stop delay 10 s), **SA Mid** (Both/3600/20/10), **SA Low** (Both/3600/40/10), or **SA Extinction** (Time/3600/30 infusions/10 s). Pavlovian presets (**Pavlovian - Acquisition**, **Pavlovian - Reversal**) are also available.
+4. **Device Preset** ("Select a preset...") applies a hardware configuration.
+5. **Hardware Controls** — arm/configure devices, grouped under **System Controls**, **Input Devices**, **Output Devices**, and **Two-Photon Devices**. Device labels include RH Lever, LH Lever, Cue 1, Cue 2, Pump 1, Pump 2, Laser, Lick Circuit, Microscope, and SLM. Use the per-device **Test** buttons to fire a device. Default device parameters: cue 8000 Hz / 1600 ms, pump 2000 ms, laser 40 Hz / 5000 ms, timeout 20000 ms (20 s), FR ratio 1.
 
-#### Step 4: Adjust Hardware (Hardware Tab)
+#### Step 3: Run the Experiment (Session panel)
 
-1. Navigate to **Hardware Tab**
-2. **Arm/Disarm Devices:**
-   - Toggle switches to enable/disable components
-   - Set which lever is "active" (delivers reward)
-3. **Set Parameters:**
-   - **Cue:** Frequency (Hz), duration (ms)
-   - **Pump:** Duration (ms), active state
-   - **Laser:** Duration (ms), frequency (Hz), mode (continuous/burst)
-   - **Levers:** Debounce time
+1. Open the **Session** panel.
+2. Click **Start** ("Start a new session"); a pre-start summary modal lets you review settings before the session begins.
+3. **During the session:**
+   - A live event timeline shows all behavioral events with timestamps.
+   - Use **Split segment** to mark a new segment, or **Restart session** to start over.
+4. Click **Stop** ("Stop the session (requires confirmation)") to end the session.
 
-#### Step 5: Configure Timing (Schedule Tab)
+#### Step 4: Export Data
 
-1. Go to **Schedule Tab**
-2. Set paradigm-specific parameters:
-   - **Fixed Ratio:** Number of presses per reward
-   - **Timeout:** Duration after reward delivery (ms)
-   - **Trace Interval:** Delay between cue and reward (ms)
-   - **Progressive Ratio:** Increment value (for PR paradigm)
-   - **Variable Interval:** Random interval range (for VI paradigm)
-
-#### Step 6: Run Experiment (Monitor Tab)
-
-1. Switch to **Monitor Tab**
-2. Review all settings one final time
-3. Click **"Start"** to begin the session
-4. **During the session:**
-   - Real-time graphs display lever presses and infusions
-   - Event log shows all behavioral events with timestamps
-   - Statistics panel shows cumulative counts
-5. **Control options:**
-   - **Pause:** Temporarily pause data collection (can resume)
-   - **Stop:** End the session (cannot resume)
-
-#### Step 7: Export Data
-
-1. After stopping the session, click **"Export data"**
-2. Data is saved as CSV files:
-   - Behavioral events (lever presses, infusions, etc.)
-   - Frame timestamps (if imaging sync is used)
-   - Session metadata
-3. Default location: `~/REACHER/` or your specified directory
+1. After stopping the session, export the data from the **Session** panel.
+2. The export is a **ZIP archive** containing `behavior_events.csv`, `frame_timestamps.csv`, `slm_timestamps.csv`, `arduino_config.json`, `event_log.jsonl`, `metadata.json`, and an optional `notes.txt`.
+3. Default export location: your configured **Destination**, otherwise `~/Downloads`. (Live logs are written to `~/REACHER/LOG/<YYYY-MM-DD_HH-MM-SS>/`.)
 
 ### Data Output Format
 
-The system generates CSV files with the following format:
+The system exports a **ZIP archive** containing CSV and JSON files:
+
+- `behavior_events.csv` — columns: `device, event, start_timestamp, end_timestamp, start_frame_index, end_frame_index` (segmented sessions produce `behavior_events_NNN.csv`)
+- `frame_timestamps.csv` — columns: `frame_index, timestamp_ms`
+- `slm_timestamps.csv` — columns: `event_index, timestamp_ms`
+- `arduino_config.json` — firmware info + hardware settings
+- `event_log.jsonl` — raw event stream
+- `metadata.json` — session metadata
+- `notes.txt` — optional session notes
 
 **Behavioral Data (example):**
 ```csv
-Device,Event,Start_Time,End_Time
-RH_LEVER,ACTIVE_PRESS,1523,1623
-PUMP,INFUSION,1650,3650
-RH_LEVER,TIMEOUT_PRESS,4200,4300
+device,event,start_timestamp,end_timestamp,start_frame_index,end_frame_index
+RH Lever,ACTIVE_PRESS,1523,1623,45,48
+Pump 1,INFUSION,1650,3650,49,109
+RH Lever,TIMEOUT_PRESS,4200,4300,125,128
 ```
 
 **Frame Data (example - if using imaging):**
 ```csv
-Frame_Number,Timestamp
+frame_index,timestamp_ms
 1,1000
 2,1033
 3,1066
@@ -861,11 +820,10 @@ Frame_Number,Timestamp
 
 Labrynth supports running multiple sessions simultaneously:
 
-1. Create additional sessions by entering new names and clicking "New wired session"
-2. Each session appears as a separate tab
-3. Each session can connect to a different Arduino on a different COM port
-4. Configure and run each session independently
-5. Tabs are color-coded and labeled for easy identification
+1. Add machines from the **Device Setup** panel (local COM ports, or remote machines via **Add Machine**)
+2. Each machine can connect to a different Arduino on a different COM port
+3. Configure and run each session independently
+4. Each session is named via the session-name field for easy identification
 
 ---
 
@@ -915,7 +873,7 @@ Labrynth supports running multiple sessions simultaneously:
   # Always create and activate venv before installing packages
   python3 -m venv venv
   source venv/bin/activate
-  pip install -r requirements.txt
+  pip install -e .
   ```
 
 ### Arduino/Firmware Issues
@@ -945,41 +903,41 @@ Labrynth supports running multiple sessions simultaneously:
 
 ### Labrynth Application Issues
 
-**Problem: "Address already in use" or port 7007 error**
+**Problem: "Address already in use" or port 6229 error**
 - **Solution:** Another instance is running or port is occupied
   ```powershell
-  # Windows: Find and kill process on port 7007
-  netstat -ano | findstr :7007
+  # Windows: Find and kill process on port 6229
+  netstat -ano | findstr :6229
   taskkill /PID <PID> /F
   ```
   ```bash
   # macOS/Linux: Find and kill process
-  lsof -ti:7007 | xargs kill -9
+  lsof -ti:6229 | xargs kill -9
   ```
 
 **Problem: Browser doesn't open automatically**
-- **Solution:** Manually navigate to `http://localhost:7007`
+- **Solution:** Manually navigate to `http://localhost:6229/`
 
 **Problem: "Cannot connect to microcontroller"**
 - **Solutions:**
   1. Verify Arduino is connected and COM port is correct
   2. Check that firmware is uploaded and running (open Serial Monitor at 115200 baud to verify)
   3. Ensure no other program is using the serial port (close Serial Monitor, other apps)
-  4. Try clicking "Search Microcontrollers" again
+  4. Re-select the port from the COM Port dropdown in the Device Setup panel
   5. Restart the Arduino (unplug/replug USB)
 
-**Problem: No data appearing in graphs or event log**
+**Problem: No data appearing in the event timeline or event log**
 - **Solutions:**
   1. Verify hardware is properly connected to Arduino pins
-  2. Check that devices are "armed" in Hardware Tab
-  3. Confirm Serial Monitor shows events when you interact with hardware
-  4. Verify the session is "Started" in Monitor Tab
+  2. Check that devices are armed in **Session Configuration → Hardware Controls**
+  3. Confirm events appear when you interact with hardware
+  4. Verify the session is started in the **Session** panel
   5. Check that lever is set as "active" if expecting rewards
 
 **Problem: Session crashes or stops responding**
 - **Solutions:**
   1. Check Python console/terminal for error messages
-  2. Verify your Python version is 3.8 or higher
+  2. Verify your Python version is 3.10 or higher
   3. Ensure all dependencies are installed: `pip list`
   4. Try creating a fresh virtual environment
   5. Check system resources (CPU, RAM) - close other applications
@@ -991,7 +949,7 @@ Labrynth supports running multiple sessions simultaneously:
   1. Verify you stopped the session before exporting
   2. Check file permissions in save directory
   3. Ensure destination directory exists and is writable
-  4. Check default location: `~/REACHER/` or `C:\Users\<username>\REACHER\`
+  4. Check the default export location: your configured Destination, otherwise `~/Downloads` (live logs are written to `~/REACHER/LOG/<timestamp>/`)
 
 **Problem: Data file is empty or incomplete**
 - **Solutions:**
@@ -1099,17 +1057,22 @@ pip list                      # List installed packages
 
 ### Running Labrynth
 ```bash
-# From labrynth/ui/src directory, with venv activated
-python main.py
+# From the labrynth directory, with venv activated
+python -m reacher        # backend serves the React app on http://localhost:6229/
+# For frontend dev: cd web && npm run dev   (Vite on :5173, proxies to :6229)
 ```
 
-### Arduino Serial Commands (for testing)
+### Hardware Commands (sent automatically by the dashboard)
+
+Devices are armed and tested from the dashboard's Hardware Controls. The dashboard/CLI
+sends numeric `CommandCode` values over the serial link as newline-delimited JSON; the
+firmware no longer accepts the old string commands. Examples:
 ```
-LINK              # Establish connection
-ARM_LEVER_RH      # Arm right lever
-ARM_PUMP          # Arm pump
-ARM_CS            # Arm cue speaker
-START-PROGRAM     # Start experiment
+CUE_ARM     = 301    CUE_TEST    = 303
+PUMP_ARM    = 401    PUMP_TEST   = 403
+LASER_ARM   = 601    LASER_TEST  = 603
+LEVER_RH_ARM = 1001  LEVER_LH_ARM = 1301
+SESSION_END  = 100
 ```
 
 ---
@@ -1122,17 +1085,17 @@ START-PROGRAM     # Start experiment
 └─────────────────────────────────────────────────────────────┘
 
     ┌──────────────────┐
-    │   User Browser   │ ←──→ http://localhost:7007
+    │   User Browser   │ ←──→ http://localhost:6229/
     └────────┬─────────┘
              │
              ↓
     ┌──────────────────┐
-    │  Labrynth (UI)   │ ←──→ Panel dashboard, session management
+    │  Labrynth (UI)   │ ←──→ React frontend, session management
     └────────┬─────────┘
              │
              ↓
     ┌──────────────────┐
-    │ REACHER (Python) │ ←──→ Core logic, serial communication
+    │ REACHER (Python) │ ←──→ FastAPI + Uvicorn backend, serial communication
     └────────┬─────────┘
              │
              ↓ Serial (USB)
@@ -1156,4 +1119,4 @@ If using these resources, please cite:
 
 ---
 
-*Last updated: January 2026*
+*Last updated: January 2026 — reacher 3.0.0-beta.5 / labrynth 3.0.0-beta.6 / firmware 3.0.0-beta.5*
