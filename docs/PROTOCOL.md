@@ -109,7 +109,7 @@ This step corresponds to **Step 3** in the manuscript.
 Download the latest Labrynth installer for your platform from the
 [Labrynth releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases).
 
-Release assets are version-stamped — substitute the current `<version>` (e.g. `3.0.0-beta.6`).
+Release assets are version-stamped — substitute the current `<version>` (e.g. `3.0.0`).
 
 | Platform | Installer | Notes |
 |----------|-----------|-------|
@@ -609,4 +609,4 @@ The troubleshooting guide covers:
 
 ---
 
-*This document covers Labrynth v3.0.0-beta.6 with REACHER v3.0.0-beta.5 — Fixed-Ratio paradigm.*
+*This document covers Labrynth v3.0.0 with REACHER v3.0.0 — Fixed-Ratio paradigm.*

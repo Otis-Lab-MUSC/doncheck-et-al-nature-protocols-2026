@@ -681,7 +681,7 @@ If you prefer not to run from source code, download the pre-built application:
 
 Release assets are version-stamped, so download the one matching the latest
 release from the [releases page](https://github.com/Otis-Lab-MUSC/labrynth/releases/latest)
-(substitute the current `<version>`, e.g. `3.0.0-beta.6`).
+(substitute the current `<version>`, e.g. `3.0.0`).
 
 **Windows:**
 ```powershell
@@ -1006,7 +1006,7 @@ If you encounter issues not covered here:
 
 1. **Check Documentation:**
    - Individual repository READMEs
-   - Nature Protocols paper: Doncheck et al. (2025)
+   - Nature Protocols paper: Doncheck et al. (2026)
    - GitHub Issues: https://github.com/Otis-Lab-MUSC/
 
 2. **Community Support:**
@@ -1115,8 +1115,8 @@ SESSION_END  = 100
 
 If using these resources, please cite:
 
-> Doncheck, E.M. et al. Drug self-administration in head-fixed mice. *Nat. Protoc.* (2026). https://doi.org/PLACEHOLDER
+> Doncheck, E.M. et al. Drug self-administration in head-fixed mice. *Nat. Protoc.* (2026). https://doi.org/10.1038/s41596-026-01406-1
 
 ---
 
-*Last updated: January 2026 — reacher 3.0.0-beta.5 / labrynth 3.0.0-beta.6 / firmware 3.0.0-beta.5*
+*Last updated: June 2026 — reacher 3.0.0 / labrynth 3.0.0 / firmware 3.0.0*
