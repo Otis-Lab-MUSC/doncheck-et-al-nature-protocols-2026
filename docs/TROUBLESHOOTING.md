@@ -394,7 +394,7 @@ When the connection succeeds:
    from the cue speaker
 2. **Firmware information appears** in the Device Setup panel, showing:
    - Sketch: `fr.ino`
-   - Version: `v3.0.0-beta.5`
+   - Version: `v3.0.0`
    - Baud rate: `115200`
    - Schedule: `FIXED_RATIO`
 
@@ -1173,5 +1173,5 @@ I can't export or find my data
 
 <!-- ============================================================ -->
 
-*This guide covers REACHER firmware v3.0.0-beta (Fixed-Ratio paradigm, wired sessions only).*
+*This guide covers REACHER firmware v3.0.0 (Fixed-Ratio paradigm, wired sessions only).*
 *For issues not covered here, check the [GitHub repository](https://github.com/Otis-Lab-MUSC/labrynth) or file an issue.*

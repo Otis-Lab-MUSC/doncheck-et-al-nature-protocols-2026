@@ -144,7 +144,7 @@ labrynth/
 ├── labrynth.spec                 # PyInstaller spec (GUI)
 ├── labrynth-cli.spec             # PyInstaller spec (CLI/TUI)
 ├── docs/                         # Documentation
-├── pyproject.toml                # Python deps (incl. reacher2p>=3.0.0b5)
+├── pyproject.toml                # Python deps (incl. reacher2p>=3.0.0)
 └── README.md                     # Documentation
 ```
 
@@ -698,13 +698,13 @@ When changes span multiple repositories, careful coordination is essential.
 **Labrynth depends on REACHER** (firmware now ships inside reacher, so there are two
 release tracks, not three):
 ```
-labrynth → reacher2p (pinned: reacher2p>=3.0.0b5) → firmware hex (package data)
+labrynth → reacher2p (pinned: reacher2p>=3.0.0) → firmware hex (package data)
 ```
 
 **Version compatibility matrix:**
 | Labrynth        | REACHER (reacher2p) | Firmware       |
 |-----------------|---------------------|----------------|
-| 3.0.0-beta.6    | 3.0.0-beta.5        | 3.0.0-beta.5   |
+| 3.0.0           | 3.0.0               | 3.0.0          |
 
 ### Change Scenarios
 
@@ -850,7 +850,7 @@ git push origin fix/timestamp-calculation
 **Step 3: Coordinate release**
 
 - Release reacher (firmware hex ships with it), then bump labrynth's `reacher2p` pin
-- Use a prerelease/patch bump as appropriate (e.g. 3.0.0-beta.5 → 3.0.0-beta.6)
+- Use a prerelease/patch bump as appropriate (e.g. 3.0.0 → 3.0.1)
 - Note in the changelog that the firmware hex must be reflashed
 
 ### Testing Multi-Repository Changes
@@ -959,7 +959,7 @@ Create test scenarios that span repositories:
 
 ### Prerequisites:
 - Arduino with the FR paradigm firmware uploaded
-- reacher (reacher2p) 3.0.0-beta.5 installed
+- reacher (reacher2p) 3.0.0 installed
 - Labrynth running
 
 ### Steps:
@@ -1036,8 +1036,8 @@ pip install build
 python -m build
 
 # Output in dist/ (PyPI distribution name is reacher2p; import stays reacher)
-# reacher2p-3.0.0b5-py3-none-any.whl
-# reacher2p-3.0.0b5.tar.gz
+# reacher2p-3.0.0-py3-none-any.whl
+# reacher2p-3.0.0.tar.gz
 ```
 
 There is no Debian/`stdeb` packaging path for reacher; it is published to PyPI as
@@ -1092,8 +1092,8 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -1104,7 +1104,7 @@ jobs:
       - name: Build executable
         run: python build.py
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: labrynth-windows
           path: dist/Labrynth/Labrynth.exe
@@ -1138,15 +1138,15 @@ Never hand-edit these — use each repo's `scripts/bump-version.py` (reacher's s
 also stamps the firmware version strings).
 
 **REACHER:**
-- `pyproject.toml`: `version = "3.0.0-beta.5"`
-- `src/reacher/__init__.py`: `__version__ = "3.0.0-beta.5"`
+- `pyproject.toml`: `version = "3.0.0"`
+- `src/reacher/__init__.py`: `__version__ = "3.0.0"`
 
 **Labrynth:**
-- `pyproject.toml` and `web/package.json`: `3.0.0-beta.6`
-- dependency pin in `pyproject.toml`: `reacher2p>=3.0.0b5`
+- `pyproject.toml` and `web/package.json`: `3.0.0`
+- dependency pin in `pyproject.toml`: `reacher2p>=3.0.0`
 
 **Firmware** (inside the reacher repo):
-- `firmware/libraries/REACHERDevices/library.properties`: `version=3.0.0-beta.5`
+- `firmware/libraries/REACHERDevices/library.properties`: `version=3.0.0`
   (stamped by reacher's `scripts/bump-version.py`; each sketch's `SendIdentification()`
   reports the same string)
 
@@ -1163,10 +1163,10 @@ When preparing a release:
 # Bump via the repo's script (see its --help for the exact invocation), then:
 python scripts/bump-version.py
 git add .
-git commit -m "chore: Bump version to 3.0.0-beta.6"
-git tag -a v3.0.0-beta.6 -m "Release v3.0.0-beta.6"
+git commit -m "chore: Bump version to 3.0.0"
+git tag -a v3.0.0 -m "Release v3.0.0"
 git push origin main
-git push origin v3.0.0-beta.6
+git push origin v3.0.0
 ```
 
 ### Changelog Management
@@ -1178,7 +1178,7 @@ Maintain CHANGELOG.md in each repository:
 
 All notable changes to this project will be documented in this file.
 
-## [3.0.0-beta.6] - 2026-06-15
+## [3.0.0] - 2026-06-24
 
 ### Added
 - Solenoid device support
@@ -1190,7 +1190,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Timestamp offset calculation bug
 
-## [3.0.0-beta.5] - 2026-06-01
+## [3.0.0-beta.7] - 2026-06-18
 
 ### Fixed
 - Hardware control UI layout issue
@@ -1232,14 +1232,14 @@ python scripts/bump-version.py
 python -m build
 
 # Tag — CI publishes reacher2p to PyPI on tag
-git tag -a v3.0.0-beta.5 -m "Release v3.0.0-beta.5"
+git tag -a v3.0.0 -m "Release v3.0.0"
 git push origin main
-git push origin v3.0.0-beta.5
+git push origin v3.0.0
 ```
 
 **GitHub Release:**
-- Upload wheel: `reacher2p-3.0.0b5-py3-none-any.whl`
-- Upload sdist: `reacher2p-3.0.0b5.tar.gz`
+- Upload wheel: `reacher2p-3.0.0-py3-none-any.whl`
+- Upload sdist: `reacher2p-3.0.0.tar.gz`
 - Mark as pre-release for beta/alpha tags
 
 **PyPI:** Publishing is automated via a trusted publisher on tag (distribution name
@@ -1253,14 +1253,14 @@ git checkout main
 git pull origin main
 
 # Bump the reacher2p pin in pyproject.toml to the just-released reacher version
-# reacher2p>=3.0.0b5
+# reacher2p>=3.0.0
 
 # Build for each platform (or use CI/CD) — see Building and Packaging section
 python build.py
 
 # Tag
-git tag -a v3.0.0-beta.6 -m "Release v3.0.0-beta.6"
-git push origin v3.0.0-beta.6
+git tag -a v3.0.0 -m "Release v3.0.0"
+git push origin v3.0.0
 ```
 
 **GitHub Release:**
@@ -1436,8 +1436,8 @@ Closes #123
 
 If using these resources, please cite:
 
-> Doncheck, E.M. et al. Drug self-administration in head-fixed mice. *Nat. Protoc.* (2026). https://doi.org/PLACEHOLDER
+> Doncheck, E.M. et al. Drug self-administration in head-fixed mice. *Nat. Protoc.* (2026). https://doi.org/10.1038/s41596-026-01406-1
 
 ---
 
-*Last updated: January 2026*
+*Last updated: June 2026*
